@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+
+  postgresql:
+    image: "postgres:12"
+    container_name: postgres_parsing_1
+    restart: always
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - 5444:5432
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+
+volumes:
+  pgdata: {}

@@ -1,0 +1,10 @@
+venv/
+.idea/
+*.pyc
+/coverage.data
+/coverage/
+/htmlcov/
+.env
+db.sqlite3
+credentials.json
+storage.json
