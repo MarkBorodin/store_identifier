@@ -4,11 +4,11 @@
 
 clone repository:
 ```
-git clone https://github.com/MarkBorodin/google_my_business.git
+git clone https://github.com/MarkBorodin/store_identifier.git
 ```
-move to folder "google_my_business":
+move to folder "store_identifier":
 ```
-cd google_my_business
+cd store_identifier
 ```
 
 ### run database
@@ -52,33 +52,21 @@ to create tables run file:
 create_db.py
 ```
 
-if you need to get data from one company, run on command line:
+run the program:
 
 ```
-python main.py "company_name"
+python store_identifier.py "file_name"
 ```
-(you need to insert the company name where "company_name")
+(you need to insert the file name where "file_name")
+
 for example:
 
 ```
-python main.py "Ad5 GmbH"
+python main.py "example.xlsx"
 ```
 
 the data will be written to the database
 
 ### ======================================================
-
-if you need to get data from all companies at once from a file, run on command line:
-```
-python main_serial.py "file_name"
-```
-(you need to insert the file name where "file_name")
-for example:
-
-```
-python main.py "Zefix-Crawl-Test.xlsx"
-```
-Сompany names should be in the first column.
-The data will be written to the database
 
 ### Finish
