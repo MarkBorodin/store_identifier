@@ -48,7 +48,7 @@ class DomainsAndSubdomains(object):
             tree = sitemap_tree_for_homepage(link)
             lst = [page.url for page in tree.all_pages()]
             words_for_goods = [
-                'goods', 'produ', 'commodity', 'ware', 'item', 'article', 'artikel', 'objekte', 'object',
+                'goods', 'product', 'produkt', 'commodity', 'ware', 'item', 'article', 'artikel', 'objekte', 'object',
                 'dienstleistungen', 'Dienstleistungen', 'services', 'service', 'Bedienung', 'bedienung'
             ]
             urls_list = str(lst)
@@ -79,31 +79,6 @@ class DomainsAndSubdomains(object):
                 future = pool.schedule(self.check_domain, args=[i], timeout=300)
                 future.item = i
                 future.add_done_callback(self.task_done)
-
-        # add objects to the database with which a connection could not be established
-        for item in self.buffer:
-            self.open_db()
-            self.cur.execute(
-                """INSERT INTO Domains_and_subdomains (
-                    DUNS, Handelsregister_Nummer, UID, Internet_Adresse, subdomains, Rechtsform, Filiale_Indikator,
-                     Mitarbeiter, Mitarbeiter_Gruppe, is_shop, number_of_goods
-                     )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (
-                    item['DUNS'],
-                    item['Handelsregister-Nummer'],
-                    item['UID'],
-                    item['Internet-Adresse'],
-                    '',
-                    item['Rechtsform'],
-                    item['Filiale Indikator'],
-                    item['Mitarbeiter'],
-                    item['Mitarbeiter Gruppe'],
-                    False,
-                    0
-                )
-            )
-            self.connection.commit()
-            self.close_db()
 
     def check_domain(self, item):
         """check subdomains and check if url is a store (by keywords)"""
@@ -157,82 +132,23 @@ class DomainsAndSubdomains(object):
                 subdomains_list = self.normalize_urls_list(common_list)
                 common_list.append(domain)
                 common_list = self.normalize_urls_list(common_list)
+                print(f'normalize common_list: {common_list}')
                 counter = self.check_the_quantity_of_goods(common_list)
 
                 if counter > 0:
                     domain_is_shop = True
 
-                self.open_db()
-                self.cur.execute(
-                    """INSERT INTO Domains_and_subdomains (
-                    DUNS, Handelsregister_Nummer, UID, Internet_Adresse, subdomains, Rechtsform, Filiale_Indikator,
-                     Mitarbeiter, Mitarbeiter_Gruppe, is_shop, number_of_goods
-                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (
-                        item['DUNS'],
-                        item['Handelsregister-Nummer'],
-                        item['UID'],
-                        item['Internet-Adresse'],
-                        str(subdomains_list),
-                        item['Rechtsform'],
-                        item['Filiale Indikator'],
-                        item['Mitarbeiter'],
-                        item['Mitarbeiter Gruppe'],
-                        domain_is_shop,
-                        counter
-                    )
-                )
-                self.connection.commit()
-                self.close_db()
+                print(type(item))
+                print(item)
+                print(f'counter: {counter}')
+                print(f'subdomains_list: {subdomains_list}')
 
             else:
-                self.open_db()
-                self.cur.execute(
-                    """INSERT INTO Domains_and_subdomains (
-                    DUNS, Handelsregister_Nummer, UID, Internet_Adresse, subdomains, Rechtsform, Filiale_Indikator,
-                     Mitarbeiter, Mitarbeiter_Gruppe, is_shop, number_of_goods
-                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (
-                        item['DUNS'],
-                        item['Handelsregister-Nummer'],
-                        item['UID'],
-                        item['Internet-Adresse'],
-                        '',
-                        item['Rechtsform'],
-                        item['Filiale Indikator'],
-                        item['Mitarbeiter'],
-                        item['Mitarbeiter Gruppe'],
-                        False,
-                        0
-                    )
-                )
-                self.connection.commit()
-                self.close_db()
+                print(type(item))
+                print(item)
 
         except Exception as e:
             print(f'1: {e}')
-            self.open_db()
-            self.cur.execute(
-                """INSERT INTO Domains_and_subdomains (
-                    DUNS, Handelsregister_Nummer, UID, Internet_Adresse, subdomains, Rechtsform, Filiale_Indikator,
-                     Mitarbeiter, Mitarbeiter_Gruppe, is_shop, number_of_goods
-                     )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (
-                    item['DUNS'],
-                    item['Handelsregister-Nummer'],
-                    item['UID'],
-                    item['Internet-Adresse'],
-                    '',
-                    item['Rechtsform'],
-                    item['Filiale Indikator'],
-                    item['Mitarbeiter'],
-                    item['Mitarbeiter Gruppe'],
-                    False,
-                    0
-                )
-            )
-            self.connection.commit()
-            self.close_db()
 
     @staticmethod
     def is_shop(subdomains_list):
@@ -249,8 +165,8 @@ class DomainsAndSubdomains(object):
                 words_for_shop = [
                     'shop', 'Shop', 'SHOP', 'store', 'Store', 'STORE', 'pay', 'Pay', 'PAY', 'cart', 'Cart', 'CART',
                     'buy', 'Buy', 'BUY', 'franken', 'Franken', 'FRANKEN', 'CHF', 'Gutschein',  'Geschenkkarte', 'toys',
-                    'Toys', 'services', 'produ', 'waren' 'goods', 'Gesellschaftsspiele', 'Mädchenbekleidung',
-                    'Männerbekleidung', 'Jungenbekleidung', 'Babybekleidung', 'Kinderschuhe', 'Spielsachen'
+                    'Toys', 'Gesellschaftsspiele', 'Mädchenbekleidung', 'Männerbekleidung', 'Jungenbekleidung',
+                    'Babybekleidung', 'Kinderschuhe', 'Spielsachen'
                 ]
                 for word in words_for_shop:
                     if word in soup:
@@ -264,30 +180,10 @@ class DomainsAndSubdomains(object):
             print(f'2: {e}')
             return []
 
-    def open_db(self):
-        """open the database"""
-        hostname = '127.0.0.1'
-        username = 'parsing_admin'
-        password = 'parsing_adminparsing_admin'
-        database = 'parsing'
-        port = "5444"
-        self.connection = psycopg2.connect(  # noqa
-            host=hostname,
-            user=username,
-            password=password,
-            dbname=database,
-            port=port)
-        self.cur = self.connection.cursor()  # noqa
-
-    def close_db(self):
-        """close the database"""
-        self.cur.close()
-        self.connection.close()
-
 
 if __name__ == '__main__':
     # get company in command line
-    file = sys.argv[1]
+    file = "Batch-Company-Adresses_1.xlsx"
 
     # create object
     obj = DomainsAndSubdomains(file)
