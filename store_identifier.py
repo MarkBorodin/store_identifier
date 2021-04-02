@@ -11,9 +11,24 @@ from pebble import ProcessPool
 from selenium import webdriver
 from url_normalize import url_normalize
 from usp.tree import sitemap_tree_for_homepage
+from usp.web_client.requests_client import RequestsWebClient
+
+
+class _RequestsWebClient(RequestsWebClient):
+    __USER_AGENT = 'Mozilla/5.0'
 
 
 class DomainsAndSubdomains(object):
+    words_for_shop = [
+        'shop', 'Shop', 'SHOP', 'store', 'Store', 'STORE', 'pay', 'Pay', 'PAY', 'cart', 'Cart', 'CART',
+        'buy', 'Buy', 'BUY', 'franken', 'Franken', 'FRANKEN', 'CHF', 'Gutschein', 'Geschenkkarte', 'toys',
+        'Toys', 'services', 'produ', 'waren' 'goods', 'Gesellschaftsspiele', 'Mädchenbekleidung',
+        'Männerbekleidung', 'Jungenbekleidung', 'Babybekleidung', 'Kinderschuhe', 'Spielsachen'
+    ]
+    words_for_goods = [
+        'goods', 'produ', 'commodity', 'ware', 'item', 'article', 'artikel', 'objekte', 'object',
+        'dienstleistungen', 'services', 'service', 'bedienung', 'CHF', 'buy', 'franken', 'pay'
+    ]
 
     def __init__(self, file): # noqa
         self.file = file
@@ -40,20 +55,42 @@ class DomainsAndSubdomains(object):
         lst = list(set(lst))
         return lst
 
-    @staticmethod
-    def check_the_quantity_of_goods(common_list):
+    def check_the_quantity_of_goods(self, common_list):
         """find the number of products (counting the number of keywords in the links found in the sitemap)"""
         counter = 0
         for link in common_list:
-            tree = sitemap_tree_for_homepage(link)
+            web_client = _RequestsWebClient()
+            tree = sitemap_tree_for_homepage(link, web_client)
             lst = [page.url for page in tree.all_pages()]
-            words_for_goods = [
-                'goods', 'produ', 'commodity', 'ware', 'item', 'article', 'artikel', 'objekte', 'object',
-                'dienstleistungen', 'Dienstleistungen', 'services', 'service', 'Bedienung', 'bedienung'
-            ]
-            urls_list = str(lst)
-            for word in words_for_goods:
-                counter += urls_list.count(word)
+
+            # !!!experimental part!!!
+            # 1 way: counting the number of products according to the sitemap links
+            # urls_list = str(lst)
+            # for word in self.words_for_goods:
+            #     counter += urls_list.count(word)
+
+            # 2 way: follow each link in sitemap and check keywords on each page (if no goods were found in the way 1)
+            # (using requests, since with selenium it will take much longer)
+            # if counter == 0 and lst != []:
+            #     counter = self.check_every_page(lst)
+
+            # 3 way follow each link in sitemap and check keywords on each page (anyway)
+            counter = self.check_every_page(lst)
+            # !!!experimental part!!!
+
+        return counter
+
+    def check_every_page(self, lst):
+        """check each page for product availability (by keywords)"""
+        counter = 0
+        for url in lst:
+            try:
+                response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
+                text = response.text
+                for word in self.words_for_goods:
+                    counter += text.count(word)
+            except Exception as e:
+                print(f'check_every_page: {e}')
         return counter
 
     def task_done(self, future):
@@ -76,7 +113,7 @@ class DomainsAndSubdomains(object):
         # create a pool for multi-threaded processing
         with ProcessPool(max_workers=5, max_tasks=10) as pool:
             for i in self.domains:
-                future = pool.schedule(self.check_domain, args=[i], timeout=300)
+                future = pool.schedule(self.check_domain, args=[i], timeout=420)
                 future.item = i
                 future.add_done_callback(self.task_done)
 
@@ -210,7 +247,7 @@ class DomainsAndSubdomains(object):
                 self.close_db()
 
         except Exception as e:
-            print(f'1: {e}')
+            print(f'check_domain: {e}')
             self.open_db()
             self.cur.execute(
                 """INSERT INTO Domains_and_subdomains (
@@ -234,8 +271,7 @@ class DomainsAndSubdomains(object):
             self.connection.commit()
             self.close_db()
 
-    @staticmethod
-    def is_shop(subdomains_list):
+    def is_shop(self, subdomains_list):
         """check if url is a store (by keywords)"""
         try:
             shops = []
@@ -246,13 +282,7 @@ class DomainsAndSubdomains(object):
                 browser.get(url)
                 time.sleep(5)
                 soup = str(BeautifulSoup(browser.page_source, 'lxml'))
-                words_for_shop = [
-                    'shop', 'Shop', 'SHOP', 'store', 'Store', 'STORE', 'pay', 'Pay', 'PAY', 'cart', 'Cart', 'CART',
-                    'buy', 'Buy', 'BUY', 'franken', 'Franken', 'FRANKEN', 'CHF', 'Gutschein',  'Geschenkkarte', 'toys',
-                    'Toys', 'services', 'produ', 'waren' 'goods', 'Gesellschaftsspiele', 'Mädchenbekleidung',
-                    'Männerbekleidung', 'Jungenbekleidung', 'Babybekleidung', 'Kinderschuhe', 'Spielsachen'
-                ]
-                for word in words_for_shop:
+                for word in self.words_for_shop:
                     if word in soup:
                         shops.append(url)
                     else:
@@ -261,7 +291,7 @@ class DomainsAndSubdomains(object):
             print(f'SHOPS FOUND: {shops}')
             return shops
         except Exception as e:
-            print(f'2: {e}')
+            print(f'is_shop: {e}')
             return []
 
     def open_db(self):
