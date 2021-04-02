@@ -11,6 +11,12 @@ from pebble import ProcessPool
 from selenium import webdriver
 from url_normalize import url_normalize
 from usp.tree import sitemap_tree_for_homepage
+from usp.web_client.abstract_client import AbstractWebClient
+from usp.web_client.requests_client import RequestsWebClient
+
+
+class _RequestsWebClient(RequestsWebClient):
+    __USER_AGENT = 'Mozilla/5.0'
 
 
 class DomainsAndSubdomains(object):
@@ -45,13 +51,15 @@ class DomainsAndSubdomains(object):
         """find the number of products (counting the number of keywords in the links found in the sitemap)"""
         counter = 0
         for link in common_list:
-            tree = sitemap_tree_for_homepage(link)
+            web_client = _RequestsWebClient()
+            tree = sitemap_tree_for_homepage(link, web_client)
             lst = [page.url for page in tree.all_pages()]
             words_for_goods = [
                 'goods', 'product', 'produkt', 'commodity', 'ware', 'item', 'article', 'artikel', 'objekte', 'object',
                 'dienstleistungen', 'Dienstleistungen', 'services', 'service', 'Bedienung', 'bedienung'
             ]
             urls_list = str(lst)
+            print(f'urls_list: {urls_list}')
             for word in words_for_goods:
                 counter += urls_list.count(word)
         return counter

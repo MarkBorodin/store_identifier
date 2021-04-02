@@ -13,14 +13,22 @@ from url_normalize import url_normalize
 from usp.tree import sitemap_tree_for_homepage
 
 
-url = 'https://www.normagroup.com/connectors/de/home/'
+url = 'https://www.holliger.com/sitemap.xml'
 
 
-r = requests.get(url)
+r = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
 html = r.text
+print(html)
 
+counter = 0
 
-soup = BeautifulSoup(html, 'lxml')
+words_for_goods = [
+    'goods', 'produ', 'commodity', 'ware', 'item', 'article', 'artikel', 'objekte', 'object',
+    'dienstleistungen', 'Dienstleistungen', 'services', 'service', 'Bedienung', 'bedienung'
+]
+urls_list = str(html)
+print(f'urls_list: {urls_list}')
+for word in words_for_goods:
+    counter += urls_list.count(word)
 
-if 'produ' in html:
-    print('+')
+print(counter)
