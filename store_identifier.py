@@ -7,6 +7,7 @@ import pandas as pd
 import psycopg2
 import requests
 from bs4 import BeautifulSoup
+from openpyxl import Workbook, load_workbook
 from pebble import ProcessPool
 from selenium import webdriver
 from url_normalize import url_normalize
@@ -30,15 +31,28 @@ class DomainsAndSubdomains(object):
         'dienstleistungen', 'services', 'service', 'bedienung', 'CHF', 'buy', 'franken', 'pay'
     ]
 
-    def __init__(self, file): # noqa
+    def __init__(self, file, mode='1'): # noqa
         self.file = file
+        self.result_file = f'result_{self.file}'
+        self.mode = mode
         self.domains = list()
         self.buffer = list()
 
     def get_domains(self):
         """get url and other data from file"""
+
+        # open and read the file
         df = pd.read_excel(self.file, engine='openpyxl')
         self.domains = df.to_dict(orient='record')
+
+        # create output file
+        wb = Workbook()
+        ws = wb.active
+        columns = list(df.columns.values)
+        columns.append('shop (Yes/No)')
+        columns.append('number of products')
+        ws.append(columns)
+        wb.save(self.result_file)
 
     @staticmethod
     def clear_url(target):
@@ -65,17 +79,23 @@ class DomainsAndSubdomains(object):
 
             # !!!experimental part!!!
             # 1 way: counting the number of products according to the sitemap links
-            # urls_list = str(lst)
-            # for word in self.words_for_goods:
-            #     counter += urls_list.count(word)
+            if self.mode == '1':
+                urls_list = str(lst)
+                for word in self.words_for_goods:
+                    counter += urls_list.count(word)
 
             # 2 way: follow each link in sitemap and check keywords on each page (if no goods were found in the way 1)
             # (using requests, since with selenium it will take much longer)
-            # if counter == 0 and lst != []:
-            #     counter = self.check_every_page(lst)
+            if self.mode == '2':
+                urls_list = str(lst)
+                for word in self.words_for_goods:
+                    counter += urls_list.count(word)
+                if counter == 0 and lst != []:
+                    counter = self.check_every_page(lst)
 
-            # 3 way follow each link in sitemap and check keywords on each page (anyway)
-            counter = self.check_every_page(lst)
+            # 3 way: follow each link in sitemap and check keywords on each page (anyway)
+            if self.mode == '3':
+                counter = self.check_every_page(lst)
             # !!!experimental part!!!
 
         return counter
@@ -119,6 +139,7 @@ class DomainsAndSubdomains(object):
 
         # add objects to the database with which a connection could not be established
         for item in self.buffer:
+            self.write_excel(item, is_shop=False, number_of_goods=0)
             self.open_db()
             self.cur.execute(
                 """INSERT INTO Domains_and_subdomains (
@@ -199,6 +220,7 @@ class DomainsAndSubdomains(object):
                 if counter > 0:
                     domain_is_shop = True
 
+                self.write_excel(item, is_shop=domain_is_shop, number_of_goods=counter)
                 self.open_db()
                 self.cur.execute(
                     """INSERT INTO Domains_and_subdomains (
@@ -223,6 +245,7 @@ class DomainsAndSubdomains(object):
                 self.close_db()
 
             else:
+                self.write_excel(item, is_shop=False, number_of_goods=0)
                 self.open_db()
                 self.cur.execute(
                     """INSERT INTO Domains_and_subdomains (
@@ -248,6 +271,7 @@ class DomainsAndSubdomains(object):
 
         except Exception as e:
             print(f'check_domain: {e}')
+            self.write_excel(item, is_shop=False, number_of_goods=0)
             self.open_db()
             self.cur.execute(
                 """INSERT INTO Domains_and_subdomains (
@@ -314,13 +338,24 @@ class DomainsAndSubdomains(object):
         self.cur.close()
         self.connection.close()
 
+    def write_excel(self, item, is_shop, number_of_goods):
+        """write data to excel"""
+        wb = load_workbook(filename=self.result_file)
+        ws = wb.active
+        lst = list(item.values())
+        lst.append(is_shop)
+        lst.append(number_of_goods)
+        ws.append(lst)
+        wb.save(self.result_file)
+
 
 if __name__ == '__main__':
     # get company in command line
     file = sys.argv[1]
+    mode = sys.argv[2]
 
     # create object
-    obj = DomainsAndSubdomains(file)
+    obj = DomainsAndSubdomains(file, mode)
 
     # get data
     obj.start()

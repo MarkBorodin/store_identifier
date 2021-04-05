@@ -7,6 +7,7 @@ import pandas as pd
 import psycopg2
 import requests
 from bs4 import BeautifulSoup
+from openpyxl import load_workbook, Workbook
 from pebble import ProcessPool
 from selenium import webdriver
 from url_normalize import url_normalize
@@ -23,6 +24,7 @@ class DomainsAndSubdomains(object):
 
     def __init__(self, file): # noqa
         self.file = file
+        self.result_file = f'result_{self.file}'
         self.domains = list()
         self.buffer = list()
 
@@ -30,6 +32,15 @@ class DomainsAndSubdomains(object):
         """get url and other data from file"""
         df = pd.read_excel(self.file, engine='openpyxl')
         self.domains = df.to_dict(orient='record')
+
+        # create output file
+        wb = Workbook()
+        ws = wb.active
+        columns = list(df.columns.values)
+        columns.append('shop (Yes/No)')
+        columns.append('number of products')
+        ws.append(columns)
+        wb.save(self.result_file)
 
     @staticmethod
     def clear_url(target):
@@ -187,6 +198,16 @@ class DomainsAndSubdomains(object):
         except Exception as e:
             print(f'2: {e}')
             return []
+
+    def write_excel(self, item, is_shop, number_of_goods):
+        """write data to excel"""
+        wb = load_workbook(filename=self.result_file)
+        ws = wb.active
+        lst = list(item.values)
+        lst.append(is_shop)
+        lst.append(number_of_goods)
+        ws.append(lst)
+        wb.save(self.result_file)
 
 
 if __name__ == '__main__':

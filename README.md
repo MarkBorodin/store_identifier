@@ -51,21 +51,26 @@ to create tables run file:
 ```
 create_db.py
 ```
+### Mods
 
-run the program:
+1. counting the number of products according to the sitemap links
+2. follow each link in sitemap and check keywords on each page (if no goods were found in the way 1) (using requests, since with selenium it will take much longer)
+3. follow each link in sitemap and check keywords on each page (anyway)
+
+### run the program:
 
 ```
-python store_identifier.py "file_name"
+python store_identifier.py "file_name" mode
 ```
-(you need to insert the file name where "file_name")
+(you need to insert the file name where "file_name" and select mode (1, 2 or 3))
 
 for example:
 
 ```
-python main.py "example.xlsx"
+python store_identifier.py "example.xlsx" 1
 ```
 
-the data will be written to the database
+the data will be written to the database and to .excel file
 
 ### ======================================================
 
