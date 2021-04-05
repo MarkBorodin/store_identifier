@@ -1,3 +1,4 @@
+import csv
 import re
 import sys
 import time
@@ -46,13 +47,21 @@ class DomainsAndSubdomains(object):
         self.domains = df.to_dict(orient='record')
 
         # create output file
-        wb = Workbook()
-        ws = wb.active
         columns = list(df.columns.values)
         columns.append('shop (Yes/No)')
         columns.append('number of products')
-        ws.append(columns)
-        wb.save(self.result_file)
+
+        # # with openpyxl lib
+        # wb = Workbook()
+        # ws = wb.active
+        # ws.append(columns)
+        # wb.save(self.result_file)
+        # wb.close()
+
+        # with csv lib
+        with open(self.result_file, "w", newline="", encoding='UTF-8') as f:
+            writer = csv.writer(f)
+            writer.writerows([columns])
 
     @staticmethod
     def clear_url(target):
@@ -139,7 +148,7 @@ class DomainsAndSubdomains(object):
 
         # add objects to the database with which a connection could not be established
         for item in self.buffer:
-            self.write_excel(item, is_shop=False, number_of_goods=0)
+            self.write_to_file(item, is_shop=False, number_of_goods=0)
             self.open_db()
             self.cur.execute(
                 """INSERT INTO Domains_and_subdomains (
@@ -220,7 +229,7 @@ class DomainsAndSubdomains(object):
                 if counter > 0:
                     domain_is_shop = True
 
-                self.write_excel(item, is_shop=domain_is_shop, number_of_goods=counter)
+                self.write_to_file(item, is_shop=domain_is_shop, number_of_goods=counter)
                 self.open_db()
                 self.cur.execute(
                     """INSERT INTO Domains_and_subdomains (
@@ -245,7 +254,7 @@ class DomainsAndSubdomains(object):
                 self.close_db()
 
             else:
-                self.write_excel(item, is_shop=False, number_of_goods=0)
+                self.write_to_file(item, is_shop=False, number_of_goods=0)
                 self.open_db()
                 self.cur.execute(
                     """INSERT INTO Domains_and_subdomains (
@@ -271,7 +280,7 @@ class DomainsAndSubdomains(object):
 
         except Exception as e:
             print(f'check_domain: {e}')
-            self.write_excel(item, is_shop=False, number_of_goods=0)
+            self.write_to_file(item, is_shop=False, number_of_goods=0)
             self.open_db()
             self.cur.execute(
                 """INSERT INTO Domains_and_subdomains (
@@ -338,15 +347,23 @@ class DomainsAndSubdomains(object):
         self.cur.close()
         self.connection.close()
 
-    def write_excel(self, item, is_shop, number_of_goods):
-        """write data to excel"""
-        wb = load_workbook(filename=self.result_file)
-        ws = wb.active
+    def write_to_file(self, item, is_shop, number_of_goods):
+        """write data to file"""
         lst = list(item.values())
         lst.append(is_shop)
         lst.append(number_of_goods)
-        ws.append(lst)
-        wb.save(self.result_file)
+
+        # # with openpyxl lib
+        # wb = load_workbook(filename=self.result_file)
+        # ws = wb.active
+        # ws.append(lst)
+        # wb.save(self.result_file)
+        # wb.close()
+
+        # with csv lib
+        with open(self.result_file, "a", newline="", encoding='UTF-8') as f:
+            writer = csv.writer(f)
+            writer.writerows([lst])
 
 
 if __name__ == '__main__':
