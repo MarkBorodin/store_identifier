@@ -21,12 +21,17 @@ class _RequestsWebClient(RequestsWebClient):
 
 
 class DomainsAndSubdomains(object):
+    # words_for_shop = [
+    #     'shop', 'Shop', 'SHOP', 'store', 'Store', 'STORE', 'pay', 'Pay', 'PAY', 'cart', 'Cart', 'CART',
+    #     'buy', 'Buy', 'BUY', 'franken', 'Franken', 'FRANKEN', 'CHF', 'Gutschein', 'Geschenkkarte', 'toys',
+    #     'Toys', 'services', 'produ', 'waren' 'goods', 'Gesellschaftsspiele', 'Mädchenbekleidung',
+    #     'Männerbekleidung', 'Jungenbekleidung', 'Babybekleidung', 'Kinderschuhe', 'Spielsachen'
+    # ]
+
     words_for_shop = [
-        'shop', 'Shop', 'SHOP', 'store', 'Store', 'STORE', 'pay', 'Pay', 'PAY', 'cart', 'Cart', 'CART',
-        'buy', 'Buy', 'BUY', 'franken', 'Franken', 'FRANKEN', 'CHF', 'Gutschein', 'Geschenkkarte', 'toys',
-        'Toys', 'services', 'produ', 'waren' 'goods', 'Gesellschaftsspiele', 'Mädchenbekleidung',
-        'Männerbekleidung', 'Jungenbekleidung', 'Babybekleidung', 'Kinderschuhe', 'Spielsachen'
+        'checkout', 'cart', 'warenkorb', 'korb', 'basket'
     ]
+
     words_for_goods = [
         'goods', 'produ', 'commodity', 'ware', 'item', 'article', 'artikel', 'objekte', 'object',
         'dienstleistungen', 'services', 'service', 'bedienung', 'CHF', 'buy', 'franken', 'pay'
@@ -76,13 +81,22 @@ class DomainsAndSubdomains(object):
             dom = dom.replace('www.', '').replace('http://', '').replace('https://', '')
             lst.append(url_normalize(dom))
         lst = list(set(lst))
+        final_list = []
+        for link in lst:
+            try:
+                req = requests.get(link)
+                if req.status_code == 200:
+                    final_list.append(link)
+            except Exception:
+                pass
         return lst
 
-    def check_the_quantity_of_goods(self, common_list):
+    def check_the_quantity_of_goods(self, common_list, item):
         """find the number of products (counting the number of keywords in the links found in the sitemap)"""
         counter = 0
         for link in common_list:
             web_client = _RequestsWebClient()
+
             tree = sitemap_tree_for_homepage(link, web_client)
             lst = [page.url for page in tree.all_pages()]
 
@@ -93,7 +107,8 @@ class DomainsAndSubdomains(object):
                 for word in self.words_for_goods:
                     counter += urls_list.count(word)
 
-            # 2 way: follow each link in sitemap and check keywords on each page (if no goods were found in the way 1)
+            # 2 way: follow each link in sitemap and check keywords on each page
+            # (if no goods were found in the way 1)
             # (using requests, since with selenium it will take much longer)
             if self.mode == '2':
                 urls_list = str(lst)
@@ -142,7 +157,7 @@ class DomainsAndSubdomains(object):
         # create a pool for multi-threaded processing
         with ProcessPool(max_workers=5, max_tasks=10) as pool:
             for i in self.domains:
-                future = pool.schedule(self.check_domain, args=[i], timeout=420)
+                future = pool.schedule(self.check_domain, args=[i], timeout=3600)
                 future.item = i
                 future.add_done_callback(self.task_done)
 
@@ -165,7 +180,7 @@ class DomainsAndSubdomains(object):
                     item['Filiale Indikator'],
                     item['Mitarbeiter'],
                     item['Mitarbeiter Gruppe'],
-                    False,
+                    True,
                     0
                 )
             )
@@ -219,15 +234,19 @@ class DomainsAndSubdomains(object):
                     else:
                         domain_is_shop = False
 
-                # check the quantity of goods
-                common_list = [link for link in subdomains_list]
-                subdomains_list = self.normalize_urls_list(common_list)
-                common_list.append(domain)
-                common_list = self.normalize_urls_list(common_list)
-                counter = self.check_the_quantity_of_goods(common_list)
+                if domain_is_shop == True: # noqa
+                    # check the quantity of goods
+                    common_list = [link for link in subdomains_list]
+                    subdomains_list = self.normalize_urls_list(common_list)
+                    common_list.append(domain)
+                    common_list = self.normalize_urls_list(common_list)
+                    counter = self.check_the_quantity_of_goods(common_list, item)
+                else:
+                    counter = 0
 
-                if counter > 0:
-                    domain_is_shop = True
+                # first way
+                # if counter > 0:
+                #     domain_is_shop = True
 
                 self.write_to_file(item, is_shop=domain_is_shop, number_of_goods=counter)
                 self.open_db()
@@ -314,12 +333,15 @@ class DomainsAndSubdomains(object):
             for url in subdomains_list:
                 browser.get(url)
                 time.sleep(5)
+
+                # first way
                 soup = str(BeautifulSoup(browser.page_source, 'lxml'))
                 for word in self.words_for_shop:
                     if word in soup:
                         shops.append(url)
                     else:
                         pass
+
             browser.close()
             print(f'SHOPS FOUND: {shops}')
             return shops
@@ -368,8 +390,11 @@ class DomainsAndSubdomains(object):
 
 if __name__ == '__main__':
     # get company in command line
-    file = sys.argv[1]
-    mode = sys.argv[2]
+    # file = sys.argv[1]
+    # mode = sys.argv[2]
+
+    file = 'Batch-Company-Adresses_test_1.xlsx'
+    mode = '2'
 
     # create object
     obj = DomainsAndSubdomains(file, mode)
