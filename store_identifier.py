@@ -29,7 +29,7 @@ class DomainsAndSubdomains(object):
     # ]
 
     words_for_shop = [
-        'checkout', 'cart', 'warenkorb', 'korb', 'basket'
+         'checkout', 'shopping cart', 'warenkorb', 'korb', 'basket'
     ]
 
     words_for_goods = [
