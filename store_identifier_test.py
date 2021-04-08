@@ -29,7 +29,7 @@ class DomainsAndSubdomains(object):
     # ]
 
     words_for_shop = [
-        'checkout', 'cart', 'warenkorb', 'korb', 'basket'
+        'checkout', 'shopping cart', 'warenkorb', 'korb', 'basket'
     ]
 
     words_for_goods = [
@@ -157,7 +157,7 @@ class DomainsAndSubdomains(object):
         # create a pool for multi-threaded processing
         with ProcessPool(max_workers=5, max_tasks=10) as pool:
             for i in self.domains:
-                future = pool.schedule(self.check_domain, args=[i], timeout=3600)
+                future = pool.schedule(self.check_domain, args=[i], timeout=360)
                 future.item = i
                 future.add_done_callback(self.task_done)
 
@@ -390,11 +390,11 @@ class DomainsAndSubdomains(object):
 
 if __name__ == '__main__':
     # get company in command line
-    file = sys.argv[1]
-    mode = sys.argv[2]
+    # file = sys.argv[1]
+    # mode = sys.argv[2]
 
-    # file = 'Batch-Company-Adresses_test.xlsx'
-    # mode = '2'
+    file = 'Batch-Company-Adresses_test.xlsx'
+    mode = '2'
 
     # create object
     obj = DomainsAndSubdomains(file, mode)
