@@ -390,11 +390,11 @@ class DomainsAndSubdomains(object):
 
 if __name__ == '__main__':
     # get company in command line
-    # file = sys.argv[1]
-    # mode = sys.argv[2]
+    file = sys.argv[1]
+    mode = sys.argv[2]
 
-    file = 'Batch-Company-Adresses_test_1.xlsx'
-    mode = '2'
+    # file = 'Batch-Company-Adresses_test.xlsx'
+    # mode = '2'
 
     # create object
     obj = DomainsAndSubdomains(file, mode)
