@@ -55,6 +55,7 @@ class DomainsAndSubdomains(object):
         columns = list(df.columns.values)
         columns.append('shop (Yes/No)')
         columns.append('number of products')
+        columns.append('shop-domain')
 
         # # with openpyxl lib
         # wb = Workbook()
@@ -163,7 +164,17 @@ class DomainsAndSubdomains(object):
 
         # add objects to the database with which a connection could not be established
         for item in self.buffer:
-            self.write_to_file(item, is_shop=False, number_of_goods=0)
+            domain = str(item['Internet-Adresse'])
+            is_shop = False
+            if 'shop' in domain or 'store' in domain:
+                is_shop = True
+            else:
+                try:
+                    if len(self.is_shop([domain])) > 0:
+                        is_shop = True
+                except Exception:
+                    is_shop = False
+            self.write_to_file(item, is_shop=False, number_of_goods=0, shop_domain='')
             self.open_db()
             self.cur.execute(
                 """INSERT INTO Domains_and_subdomains (
@@ -180,7 +191,7 @@ class DomainsAndSubdomains(object):
                     item['Filiale Indikator'],
                     item['Mitarbeiter'],
                     item['Mitarbeiter Gruppe'],
-                    True,
+                    is_shop,
                     0
                 )
             )
@@ -248,7 +259,7 @@ class DomainsAndSubdomains(object):
                 # if counter > 0:
                 #     domain_is_shop = True
 
-                self.write_to_file(item, is_shop=domain_is_shop, number_of_goods=counter)
+                self.write_to_file(item, is_shop=domain_is_shop, number_of_goods=counter, shop_domain=subdomains_list)
                 self.open_db()
                 self.cur.execute(
                     """INSERT INTO Domains_and_subdomains (
@@ -273,7 +284,7 @@ class DomainsAndSubdomains(object):
                 self.close_db()
 
             else:
-                self.write_to_file(item, is_shop=False, number_of_goods=0)
+                self.write_to_file(item, is_shop=False, number_of_goods=0, shop_domain='')
                 self.open_db()
                 self.cur.execute(
                     """INSERT INTO Domains_and_subdomains (
@@ -299,7 +310,7 @@ class DomainsAndSubdomains(object):
 
         except Exception as e:
             print(f'check_domain: {e}')
-            self.write_to_file(item, is_shop=False, number_of_goods=0)
+            self.write_to_file(item, is_shop=False, number_of_goods=0, shop_domain='')
             self.open_db()
             self.cur.execute(
                 """INSERT INTO Domains_and_subdomains (
@@ -369,11 +380,12 @@ class DomainsAndSubdomains(object):
         self.cur.close()
         self.connection.close()
 
-    def write_to_file(self, item, is_shop, number_of_goods):
+    def write_to_file(self, item, is_shop, number_of_goods, shop_domain):
         """write data to file"""
         lst = list(item.values())
         lst.append(is_shop)
         lst.append(number_of_goods)
+        lst.append(shop_domain)
 
         # # with openpyxl lib
         # wb = load_workbook(filename=self.result_file)
@@ -394,7 +406,7 @@ if __name__ == '__main__':
     # mode = sys.argv[2]
 
     file = 'Batch-Company-Adresses_test.xlsx'
-    mode = '2'
+    mode = '1'
 
     # create object
     obj = DomainsAndSubdomains(file, mode)
