@@ -17,7 +17,7 @@ class DB(object):
 
     def drop_table(self):
         self.cur.execute(
-            """DROP TABLE table_1"""
+            """DROP TABLE Domains_and_subdomains"""
         )
         self.connection.commit()
 
@@ -37,7 +37,17 @@ class DB(object):
                      Mitarbeiter integer,
                      Mitarbeiter_Gruppe TEXT,
                      is_shop boolean,
-                     number_of_goods integer
+                     number_of_goods integer,
+                     phone TEXT,
+                     phone_main_page TEXT,
+                     phones_all_pages TEXT,
+                     leader_phone TEXT,
+                     leader_phone_from_team TEXT,
+                     email TEXT,
+                     email_main_page TEXT,
+                     emails_all_pages TEXT,
+                     leader_email TEXT,
+                     leader_email_from_team TEXT
                      );''')
 
         self.connection.commit()

@@ -60,14 +60,14 @@ create_db.py
 ### run the program:
 
 ```
-python store_identifier.py "file_name" mode
+python store_identifier.py "file_name" mode timeout
 ```
-(you need to insert the file name where "file_name" and select mode (1, 2 or 3))
+(you need to insert the file name where "file_name", select mode (1, 2 or 3), specify timeout (in seconds))
 
 for example:
 
 ```
-python store_identifier.py "example.xlsx" 1
+python store_identifier.py "example.xlsx" 1 360
 ```
 
 the data will be written to the database and to .excel file
