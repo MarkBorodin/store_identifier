@@ -51,6 +51,7 @@ to create tables run file:
 ```
 create_db.py
 ```
+
 ### Mods
 
 1. counting the number of products according to the sitemap links
@@ -73,5 +74,14 @@ python store_identifier.py "example.xlsx" 1 360
 the data will be written to the database and to .excel file
 
 ### ======================================================
+
+### run the collect_contact_information:
+
+2 modes of operation: normal and with crawls  all pages from the sitemap. In normal mode, you need to specify 0, and in the second mode, specify 1:
+
+```
+python collect_contact_information.py www.site.com 0
+python collect_contact_information.py www.site.com 1
+```
 
 ### Finish
