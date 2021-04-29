@@ -96,13 +96,13 @@ class LeadGeneration(object):
                         text_from_email.append(email_text)
 
                     text_from_phone = [j for i in text_from_phone for j in i]
-                    text_from_phone = self.unique_emails([i for i in text_from_phone if i])
+                    text_from_phone = self.unique([i for i in text_from_phone if i])
                     phone_leader = self.unique_phones([j for i in phone_leader for j in i])
                     # phone_leader = phone_leader[0] if type(phone_leader[0]) is not list else phone_leader[0][0]  # noqa
 
                     text_from_email = [j for i in text_from_email for j in i]
-                    text_from_email = self.unique_emails([i for i in text_from_email if i])
-                    email_leader = self.unique_emails([j for i in email_leader for j in i])
+                    text_from_email = self.unique([i for i in text_from_email if i])
+                    email_leader = self.unique([j for i in email_leader for j in i])
                     # email_leader = email_leader[0] if type(email_leader[0]) is not list else email_leader[0][0]  # noqa
 
             except Exception as e:
@@ -121,10 +121,10 @@ class LeadGeneration(object):
                         self.get_leader_phone_and_email_from_sitemap_section_team(sitemap_tree) # noqa
 
                     text_sitemap_leader_phone_from_team = [j for i in text_sitemap_leader_phone_from_team for j in i] # noqa
-                    text_sitemap_leader_phone_from_team = self.unique_emails([i for i in text_sitemap_leader_phone_from_team if i]) # noqa
+                    text_sitemap_leader_phone_from_team = self.unique([i for i in text_sitemap_leader_phone_from_team if i]) # noqa
 
                     text_sitemap_leader_email_from_team = [j for i in text_sitemap_leader_email_from_team for j in i] # noqa
-                    text_sitemap_leader_email_from_team = self.unique_emails([i for i in text_sitemap_leader_email_from_team if i]) # noqa
+                    text_sitemap_leader_email_from_team = self.unique([i for i in text_sitemap_leader_email_from_team if i]) # noqa
 
                     if self.all_pages == 1:
                         all_pages_leader_phone, all_pages_leader_email = self.check_phones_emails_on_every_page(sitemap_tree) # noqa
@@ -133,7 +133,7 @@ class LeadGeneration(object):
                 print(f'sitemap_tree: {e}')
 
             try:
-                # name_leader = self.unique_emails(text_sitemap_leader_phone_from_team +
+                # name_leader = self.unique(text_sitemap_leader_phone_from_team +
                 # text_sitemap_leader_email_from_team + text_from_phone + text_from_email)  # noqa
 
                 name_leader = text_from_phone
@@ -262,16 +262,16 @@ class LeadGeneration(object):
                                     result = str(match).split(sep=') ')[1]
                                     if result is not None and str(result).strip() != '410':
                                         phones.append(result)
-                                if not result:
-                                    for match in phonenumbers.PhoneNumberMatcher(str(soup.find(text=re.compile(word)).parent.parent), "CH"):
+                                if not result:  # noqa
+                                    for match in phonenumbers.PhoneNumberMatcher(str(soup.find(text=re.compile(word)).parent.parent), "CH"): # noqa
                                         result = str(match).split(sep=') ')[1]
                                         if result is not None and str(result).strip() != '410':
                                             phones.append(result)
                             except Exception:  # noqa
                                 pass
-                        except Exception as e:  # noqa
+                        except Exception:  # noqa
                             continue
-            phones = self.unique_phones(phones) # noqa
+            phones = self.unique_phones(phones)
             text_from_phone = self.get_names(text_from_phone)
         except Exception as e:
             print(f'find_phones: {e}')
@@ -319,7 +319,7 @@ class LeadGeneration(object):
                                 pass
                         except Exception: # noqa
                             continue
-            emails = self.unique_emails(emails) # noqa
+            emails = self.unique(emails) # noqa
             # text_from_email = self.get_names(text_from_email)
         except Exception as e:
             print(f'find_emails: {e}')
@@ -327,12 +327,16 @@ class LeadGeneration(object):
 
     @staticmethod
     def get_names(text_from_phone):
+        """find names in sting"""
         names = []
         for i in text_from_phone:
+            i_list = []
             r = re.sub(r"([A-Z])", r" \1", i).split()
             for word in r:
-                if dataset.search_first_name(word) > 8.0 or dataset.search_last_name(word) > 8.0:
-                    names.append(word)
+                if dataset.search_first_name(word) > 3.0 or dataset.search_last_name(word) > 3.0:
+                    i_list.append(word)
+            result = ' '.join(i_list)
+            names.append(result)
         return names
 
     @staticmethod
@@ -347,8 +351,8 @@ class LeadGeneration(object):
         return set_lst
 
     @staticmethod
-    def unique_emails(lst: list) -> list:
-        """remove duplicate emails"""
+    def unique(lst: list) -> list:
+        """remove duplicate"""
         set_lst = list(set(lst))
         return set_lst
 
@@ -358,15 +362,15 @@ class LeadGeneration(object):
         columns = list()
         columns.append('website')
         columns.append('name_leader')
-        columns.append('phone_main')
         columns.append('phone_leader')
+        columns.append('email_leader')
+        columns.append('phone_main')
+        columns.append('mail_main')
         # columns.append('text_from_phone')
         columns.append('sitemap_leader_phone')
         columns.append('sitemap_leader_phone_from_team')
         # columns.append('text_sitemap_leader_phone_from_team')
         columns.append('all_pages_leader_phone')
-        columns.append('mail_main')
-        columns.append('email_leader')
         # columns.append('text_from_email')
         columns.append('sitemap_leader_email')
         columns.append('sitemap_leader_email_from_team')
@@ -391,26 +395,26 @@ class LeadGeneration(object):
             name_leader = ''
         if not phone_leader:
             phone_leader = ''
-        if not text_from_phone:
-            text_from_phone = ''
+        # if not text_from_phone:
+        #     text_from_phone = ''
         if not sitemap_leader_phone:
             sitemap_leader_phone = ''
         if not sitemap_leader_phone_from_team:
             sitemap_leader_phone_from_team = ''
-        if not text_sitemap_leader_phone_from_team:
-            text_sitemap_leader_phone_from_team = ''
+        # if not text_sitemap_leader_phone_from_team:
+        #     text_sitemap_leader_phone_from_team = ''
         if not all_pages_leader_phone:
             all_pages_leader_phone = ''
         if not email_leader:
             email_leader = ''
-        if not text_from_email:
-            text_from_email = ''
+        # if not text_from_email:
+        #     text_from_email = ''
         if not sitemap_leader_email:
             sitemap_leader_email = ''
         if not sitemap_leader_email_from_team:
             sitemap_leader_email_from_team = ''
-        if not text_sitemap_leader_email_from_team:
-            text_sitemap_leader_email_from_team = ''
+        # if not text_sitemap_leader_email_from_team:
+        #     text_sitemap_leader_email_from_team = ''
         if not all_pages_leader_email:
             all_pages_leader_email = ''
         if not phone_main:
@@ -421,15 +425,15 @@ class LeadGeneration(object):
         lst = list()
         lst.append(website)
         lst.append(name_leader)
-        lst.append(phone_main)
         lst.append(phone_leader)
+        lst.append(email_leader)
+        lst.append(phone_main)
+        lst.append(mail_main)
         # lst.append(text_from_phone)
         lst.append(sitemap_leader_phone)
         lst.append(sitemap_leader_phone_from_team)
         # lst.append(text_sitemap_leader_phone_from_team)
         lst.append(all_pages_leader_phone)
-        lst.append(mail_main)
-        lst.append(email_leader)
         # lst.append(text_from_email)
         lst.append(sitemap_leader_email)
         lst.append(sitemap_leader_email_from_team)
@@ -495,7 +499,7 @@ class LeadGeneration(object):
         phones = [j for i in leader_phone for j in i]
         phones = self.unique_phones(phones)
         emails = [j for i in leader_email for j in i]
-        emails = self.unique_emails(emails)
+        emails = self.unique(emails)
         return phones, emails
 
     def get_leader_phone_and_email_from_sitemap_section_team(self, sitemap_tree: list) -> tuple:
@@ -520,7 +524,7 @@ class LeadGeneration(object):
         phones = self.unique_phones(phones)
 
         emails = [j for i in leader_email_from_team for j in i]
-        emails = self.unique_emails(emails)
+        emails = self.unique(emails)
 
         return phones, emails, text_leader_phone_from_team, text_leader_email_from_team
 
@@ -549,12 +553,12 @@ class LeadGeneration(object):
         phones = [j for i in phones for j in i]
         phones = self.unique_phones(phones)
         emails = [j for i in emails for j in i]
-        emails = self.unique_emails(emails)
+        emails = self.unique(emails)
         return phones, emails
 
 
 def get_class(url: str) -> None:
-    obj = LeadGeneration(url)
+    obj = LeadGeneration(url)  # noqa
     obj.start()
     print(f'url_started: {url}')
 
@@ -572,10 +576,10 @@ def task_done(future):  # noqa
 if __name__ == '__main__':
 
     # get one website
-    url = sys.argv[1]
+    site_url = sys.argv[1]
     mode = int(sys.argv[2])
 
     # run one site
-    obj = LeadGeneration(url, mode)
-    print(f'url_started: {url}')
+    obj = LeadGeneration(site_url, mode)
+    print(f'url_started: {site_url}')
     obj.start()
