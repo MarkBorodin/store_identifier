@@ -30,12 +30,12 @@ class DomainsAndSubdomains(object):
     ]
 
     words_for_company_leader = [
-        'leader', 'head', 'chief', 'Leiter', 'Chef', 'Geschäftsführer', 'führer'
+        'leader', 'head', 'chief', 'Leiter', 'Chef', 'Geschäftsführer', 'Geschäftsleitung', 'führer', 'Director'
     ]
 
     words_for_company_team = [
-        'team', 'staff', 'personnel', 'mitarbeiter', 'Ueber_uns', 'ber uns', 'about us', 'about_us', 'kontakt',
-        'contact', 'contatti'
+        'team', 'staff', 'personnel', 'mitarbeiter', 'Ueber_uns', 'ber uns', 'ber_uns', 'about us', 'about_us',
+        'kontakt', 'contact', 'contatti', 'firma'
     ]
 
     def __init__(self, file, mode='1', timeout=3600): # noqa
@@ -61,14 +61,16 @@ class DomainsAndSubdomains(object):
         columns.append('shop-domain')
         columns.append('phone')
         columns.append('phone_main_page')
+        columns.append('leader_phone_without_sitemap')
         columns.append('phones_all_pages')
-        columns.append('leader_phone')
-        columns.append('leader_phone_from_team')
+        columns.append('leader_phone_sitemap')
+        columns.append('leader_phone_from_team_sitemap')
         columns.append('email')
         columns.append('email_main_page')
+        columns.append('leader_email_without_sitemap')
         columns.append('emails_all_pages')
-        columns.append('leader_email')
-        columns.append('leader_email_from_team')
+        columns.append('leader_email_sitemap')
+        columns.append('leader_email_from_team_sitemap')
 
         # with csv lib
         with open(self.result_file, "w", newline="", encoding='UTF-8') as f:
@@ -114,11 +116,17 @@ class DomainsAndSubdomains(object):
         try:
             html = requests.get(url, headers=self.headers).text
             soup = BeautifulSoup(html, 'lxml')
-            phone = soup.find(text=re.compile(word)).parent.parent  # TODO
+            phone = soup.find(text=re.compile(word)).parent  # TODO
             for match in phonenumbers.PhoneNumberMatcher(str(phone), "CH"):
-                result = str(match).split(sep=') ')[1]
-                if result is not None and str(result).strip() != '410':
+                result = str(match).split(sep=') ', maxsplit=1)[1]
+                if result:
                     phone_list.append(result)
+            if not phone_list:
+                for match in phonenumbers.PhoneNumberMatcher(
+                        str(soup.find(text=re.compile(word)).parent.parent), "CH"):  # noqa
+                    result = str(match).split(sep=') ', maxsplit=1)[1]
+                    if result:
+                        phone_list.append(result)
             return phone_list
         except Exception as e: # noqa
             return phone_list
@@ -142,17 +150,21 @@ class DomainsAndSubdomains(object):
                         email_list.append(result[0])
             return email_list
         except Exception as e: # noqa
+            print(f'find_email_by_keyword: {e}')
             return email_list
 
     def get_leader_phone_and_email_from_sitemap(self, sitemap_tree):
         """looking for the phone number and the email of the head of the company"""
         leader_phone = []
         leader_email = []
-        for url in sitemap_tree:
-            for word in self.words_for_company_leader:
-                if word in url:
-                    leader_phone.append(self.find_phone_by_keyword(url, word))
-                    leader_email.append(self.find_email_by_keyword(url, word))
+        try:
+            for url in sitemap_tree:
+                for word in self.words_for_company_leader:
+                    if word in url:
+                        leader_phone.append(self.find_phone_by_keyword(url, word))
+                        leader_email.append(self.find_email_by_keyword(url, word))
+        except Exception as e: # noqa
+            print(f'get_leader_phone_and_email_from_sitemap: {e}')
         phones = [j for i in leader_phone for j in i]
         phones = self.unique_phones(phones)
         emails = [j for i in leader_email for j in i]
@@ -163,15 +175,18 @@ class DomainsAndSubdomains(object):
         """looking for leader phone and email number in team section"""
         leader_phone_from_team = []
         leader_email_from_team = []
-        for url in sitemap_tree:
-            for word in self.words_for_company_team:
-                if word in url:
-                    leader_phone_from_team.append(
-                        self.find_phones(requests.get(url, headers=self.headers).text, leader=True)
-                    )
-                    leader_email_from_team.append(
-                        self.find_emails(requests.get(url, headers=self.headers).text, leader=True)
-                    )
+        try:
+            for url in sitemap_tree:
+                for word in self.words_for_company_team:
+                    if word in url:
+                        leader_phone_from_team.append(
+                            self.find_phones(requests.get(url, headers=self.headers).text, leader=True)
+                        )
+                        leader_email_from_team.append(
+                            self.find_emails(requests.get(url, headers=self.headers).text, leader=True)
+                        )
+        except Exception as e: # noqa
+            print(f'get_leader_phone_and_email_from_sitemap_section_team: {e}')
         phones = [j for i in leader_phone_from_team for j in i]
         phones = self.unique_phones(phones)
         emails = [j for i in leader_email_from_team for j in i]
@@ -230,41 +245,42 @@ class DomainsAndSubdomains(object):
 
     def find_phones(self, text, leader=False):
         """the method searches for phone numbers on the page"""
-        phones = []
+        phones = list()
         try:
             if leader is False:
                 for match in phonenumbers.PhoneNumberMatcher(text, "CH"):
-                    phone = str(match).split(sep=') ')[1]
-                    if phone is not None and str(phone).strip() != '410':
+                    phone = str(match).split(sep=') ', maxsplit=1)[1]
+                    if phone:
                         phones.append(phone)
             if leader is True:
                 soup = BeautifulSoup(text, 'lxml')
                 for word in self.words_for_company_leader:
-                    try:
-                        phone = soup.find(text=re.compile(word)).parent.parent    # TODO
-                        for match in phonenumbers.PhoneNumberMatcher(str(phone), "CH"):
-                            result = str(match).split(sep=') ')[1]
-                            if result is not None and str(result).strip() != '410':
-                                phones.append(result)
-                    except Exception as e:  # noqa
-                        continue
-                if not phones:
-                    try:
-                        for match in phonenumbers.PhoneNumberMatcher(str(soup), "CH"):
-                            result = str(match).split(sep=') ')[1]
-                            if result is not None and str(result).strip() != '410':
-                                phones.append(result)
-                    except Exception as e:  # noqa
-                        pass
-            phones = self.unique_phones(phones) # noqa
-            return phones
+                    if word in str(soup):
+                        try:
+                            for match in phonenumbers.PhoneNumberMatcher(str(soup.find(text=re.compile(word)).parent), "CH"):   # noqa  TODO
+                                result = str(match).split(sep=') ', maxsplit=1)[1]
+                                if result:
+                                    phones.append(result)
+                        except Exception:  # noqa
+                            continue
+                if not phones:  # noqa
+                    for word in self.words_for_company_leader:
+                        if word in str(soup):
+                            try:
+                                for match in phonenumbers.PhoneNumberMatcher(str(soup.find(text=re.compile(word)).parent.parent), "CH"):  # noqa  TODO
+                                    result = str(match).split(sep=') ', maxsplit=1)[1]
+                                    if result:
+                                        phones.append(result)
+                            except Exception:  # noqa
+                                continue
+            phones = self.unique_phones(phones)
         except Exception as e:
             print(f'find_phones: {e}')
-            return phones
+        return phones
 
     def find_emails(self, text, leader=False):
         """the method searches for email on the page"""
-        emails = []
+        emails = list()
         try:
             soup = BeautifulSoup(text, 'lxml')
             if leader is False:
@@ -281,24 +297,10 @@ class DomainsAndSubdomains(object):
                                 emails.append(result[0])
             if leader is True:
                 for word in self.words_for_company_leader:
-                    try:
-                        tag = soup.find(text=re.compile(word)).parent.parent    # TODO
-                        email = tag.find(text=re.compile(r'[\w\.-]+@[\w\.-]+(\.[\w]+)+'))   # noqa
-                        if email is not None:
-                            email = email.strip()
-                            if self.check_email_valid(email) is True:
-                                emails.append(email)
-                            else:
-                                result = email.split(sep=' ')
-                                result = [word for word in result if '@' in word]
-                                if self.check_email_valid(result[0]) is True:
-                                    emails.append(result[0])
-                    except Exception: # noqa
-                        continue
-                if not emails:
-                    try:
-                        results = soup.findAll(text=re.compile(r'[\w\.-]+@[\w\.-]+(\.[\w]+)+'))   # noqa
-                        for email in results:
+                    if word in str(soup):
+                        try:
+                            tag = soup.find(text=re.compile(word)).parent    # TODO
+                            email = tag.find(text=re.compile(r'[\w\.-]+@[\w\.-]+(\.[\w]+)+'))   # noqa
                             if email is not None:
                                 email = email.strip()
                                 if self.check_email_valid(email) is True:
@@ -308,8 +310,25 @@ class DomainsAndSubdomains(object):
                                     result = [word for word in result if '@' in word]
                                     if self.check_email_valid(result[0]) is True:
                                         emails.append(result[0])
-                    except Exception: # noqa
-                        pass
+                        except Exception: # noqa
+                            continue
+                if not emails:
+                    for word in self.words_for_company_leader:
+                        if word in str(soup):
+                            try:
+                                tag = soup.find(text=re.compile(word)).parent.parent  # TODO
+                                email = tag.find(text=re.compile(r'[\w\.-]+@[\w\.-]+(\.[\w]+)+'))  # noqa
+                                if email is not None:
+                                    email = email.strip()
+                                    if self.check_email_valid(email) is True:
+                                        emails.append(email)
+                                    else:
+                                        result = email.split(sep=' ')
+                                        result = [word for word in result if '@' in word]
+                                        if self.check_email_valid(result[0]) is True:
+                                            emails.append(result[0])
+                            except Exception:  # noqa
+                                continue
             emails = self.unique_emails(emails) # noqa
             return emails
         except Exception as e:
@@ -340,7 +359,10 @@ class DomainsAndSubdomains(object):
                 future.add_done_callback(self.task_done)
 
         # add objects to the database with which a connection could not be established
-        self.run_buffer()
+        try:
+            self.run_buffer()
+        except Exception as e:
+            print(f'run_buffer error: {e}')
 
     def run_buffer(self):
         """add objects to the database with which a connection could not be established"""
@@ -355,30 +377,40 @@ class DomainsAndSubdomains(object):
             leader_email_from_team = ''
             domain = str(item['Internet-Adresse']) # noqa
             is_shop = False
+            leader_phone_without_sitemap = ''
+            leader_email_without_sitemap = ''
 
             if 'shop' in domain or 'store' in domain:
                 is_shop = True
 
             try:
-                is_shop, main_page_phone, main_page_email = self.is_shop_and_main_page(domain, is_shop)
+                is_shop, main_page_phone, main_page_email, phone, email = self.is_shop_and_main_page(domain, is_shop)
+                leader_phone_without_sitemap = phone
+                leader_email_without_sitemap = email
             except Exception as e:
                 is_shop = False
                 print(f'start: {e}')
 
-            phone, leader_phone, leader_phone_from_team, main_page_phone, all_pages_phone = self.phone(
-                leader_phone=leader_phone, leader_phone_from_team=leader_phone_from_team,
-                main_page_phone=main_page_phone, all_pages_phone=all_pages_phone
-            )
+            phone, leader_phone_without_sitemap, leader_phone, leader_phone_from_team, main_page_phone,\
+                all_pages_phone = self.phone(
+                    leader_phone_without_sitemap=leader_phone_without_sitemap, leader_phone=leader_phone,
+                    leader_phone_from_team=leader_phone_from_team,
+                    main_page_phone=main_page_phone, all_pages_phone=all_pages_phone
+                )
 
-            email, leader_email, leader_email_from_team, main_page_email, all_pages_email = self.email(
-                leader_email=leader_email, leader_email_from_team=leader_email_from_team,
-                main_page_email=main_page_email, all_pages_email=all_pages_email
-            )
+            email, leader_email_without_sitemap, leader_email, leader_email_from_team, main_page_email,\
+                all_pages_email = self.email(
+                    leader_email_without_sitemap=leader_email_without_sitemap, leader_email=leader_email,
+                    leader_email_from_team=leader_email_from_team,
+                    main_page_email=main_page_email, all_pages_email=all_pages_email
+                )
 
             self.write_to_file(
-                item, is_shop=is_shop, number_of_goods=0, shop_domain='', phone=phone,
-                main_page_phone=main_page_phone, all_pages_phone=all_pages_phone, leader_phone=leader_phone,
-                leader_phone_from_team=leader_phone_from_team, email=email, leader_email=leader_email,
+                item, is_shop=is_shop, number_of_goods=0, shop_domain='', phone=phone, main_page_phone=main_page_phone,
+                leader_phone_without_sitemap=leader_phone_without_sitemap,
+                all_pages_phone=all_pages_phone, leader_phone=leader_phone,
+                leader_phone_from_team=leader_phone_from_team, email=email,
+                leader_email_without_sitemap=leader_email_without_sitemap, leader_email=leader_email,
                 leader_email_from_team=leader_email_from_team, main_page_email=main_page_email,
                 all_pages_email=all_pages_email
             )
@@ -387,10 +419,11 @@ class DomainsAndSubdomains(object):
                 """INSERT INTO Domains_and_subdomains (
                      DUNS, Handelsregister_Nummer, UID, Internet_Adresse, subdomains, Rechtsform, Filiale_Indikator,
                      Mitarbeiter, Mitarbeiter_Gruppe, is_shop, number_of_goods, phone, phone_main_page,
-                     phones_all_pages, leader_phone, leader_phone_from_team, email, email_main_page, emails_all_pages,
-                     leader_email, leader_email_from_team
+                     leader_phone_without_sitemap, phones_all_pages, leader_phone_sitemap, 
+                     leader_phone_from_team_sitemap, email, email_main_page, leader_email_without_sitemap,  
+                     emails_all_pages, leader_email_sitemap, leader_email_from_team_sitemap
                      )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (
+                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (   # noqa
                     item['DUNS'],
                     item['Handelsregister-Nummer'],
                     item['UID'],
@@ -404,11 +437,13 @@ class DomainsAndSubdomains(object):
                     0,
                     str(phone),
                     str(main_page_phone),
+                    str(leader_phone_without_sitemap),
                     str(all_pages_phone),
                     str(leader_phone),
                     str(leader_phone_from_team),
                     str(email),
                     str(main_page_email),
+                    str(leader_email_without_sitemap),
                     str(all_pages_email),
                     str(leader_email),
                     str(leader_email_from_team)
@@ -430,6 +465,9 @@ class DomainsAndSubdomains(object):
         all_pages_email = ''
         main_page_email = ''
         email = ''
+        leader_phone_without_sitemap = ''
+        leader_email_without_sitemap = ''
+
         try:
             domain = item['Internet-Adresse']
             subdomains = []
@@ -467,7 +505,9 @@ class DomainsAndSubdomains(object):
                                 subdomains_list.append(url_normalize(subdomain))
                                 print(f'subdomain_o: {subdomain}')
 
-                is_shop, main_page_phone, main_page_email = self.is_shop_and_main_page(domain, domain_is_shop)
+                is_shop, main_page_phone, main_page_email, phone, email = self.is_shop_and_main_page(domain, domain_is_shop)   # noqa
+                leader_phone_without_sitemap = phone
+                leader_email_without_sitemap = email
 
                 if is_shop is True:
                     domain_is_shop = True
@@ -488,32 +528,41 @@ class DomainsAndSubdomains(object):
                     else:
                         pass
 
-                phone, leader_phone, leader_phone_from_team, main_page_phone, all_pages_phone = self.phone(
-                    leader_phone=leader_phone, leader_phone_from_team=leader_phone_from_team,
-                    main_page_phone=main_page_phone, all_pages_phone=all_pages_phone
-                )
+                phone, leader_phone_without_sitemap, leader_phone, leader_phone_from_team, main_page_phone,\
+                    all_pages_phone = self.phone(
+                        leader_phone_without_sitemap=leader_phone_without_sitemap, leader_phone=leader_phone,
+                        leader_phone_from_team=leader_phone_from_team,
+                        main_page_phone=main_page_phone, all_pages_phone=all_pages_phone
+                    )
 
-                email, leader_email, leader_email_from_team, main_page_email, all_pages_email = self.email(
-                    leader_email=leader_email, leader_email_from_team=leader_email_from_team,
-                    main_page_email=main_page_email, all_pages_email=all_pages_email
-                )
+                email, leader_email_without_sitemap, leader_email, leader_email_from_team, main_page_email,\
+                    all_pages_email = self.email(
+                        leader_email_without_sitemap=leader_email_without_sitemap, leader_email=leader_email,
+                        leader_email_from_team=leader_email_from_team,
+                        main_page_email=main_page_email, all_pages_email=all_pages_email
+                    )
 
                 self.write_to_file(
                     item, is_shop=domain_is_shop, number_of_goods=counter, shop_domain=subdomains_list, phone=phone,
-                    main_page_phone=main_page_phone, all_pages_phone=all_pages_phone, leader_phone=leader_phone,
-                    leader_phone_from_team=leader_phone_from_team, email=email, leader_email=leader_email,
+                    main_page_phone=main_page_phone,
+                    leader_phone_without_sitemap=leader_phone_without_sitemap,
+                    all_pages_phone=all_pages_phone, leader_phone=leader_phone,
+                    leader_phone_from_team=leader_phone_from_team, email=email,
+                    leader_email_without_sitemap=leader_email_without_sitemap, leader_email=leader_email,
                     leader_email_from_team=leader_email_from_team, main_page_email=main_page_email,
                     all_pages_email=all_pages_email
                 )
+
                 self.open_db()
                 self.cur.execute(
                     """INSERT INTO Domains_and_subdomains (
                      DUNS, Handelsregister_Nummer, UID, Internet_Adresse, subdomains, Rechtsform, Filiale_Indikator,
                      Mitarbeiter, Mitarbeiter_Gruppe, is_shop, number_of_goods, phone, phone_main_page,
-                     phones_all_pages, leader_phone, leader_phone_from_team, email, email_main_page, emails_all_pages,
-                     leader_email, leader_email_from_team
+                     leader_phone_without_sitemap, phones_all_pages, leader_phone_sitemap, 
+                     leader_phone_from_team_sitemap, email, email_main_page, leader_email_without_sitemap,  
+                     emails_all_pages, leader_email_sitemap, leader_email_from_team_sitemap
                      )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (
+                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (   # noqa
                         item['DUNS'],
                         item['Handelsregister-Nummer'],
                         item['UID'],
@@ -527,15 +576,16 @@ class DomainsAndSubdomains(object):
                         counter,
                         str(phone),
                         str(main_page_phone),
+                        str(leader_phone_without_sitemap),
                         str(all_pages_phone),
                         str(leader_phone),
                         str(leader_phone_from_team),
                         str(email),
                         str(main_page_email),
+                        str(leader_email_without_sitemap),
                         str(all_pages_email),
                         str(leader_email),
                         str(leader_email_from_team)
-
                     )
                 )
                 self.connection.commit()
@@ -544,8 +594,11 @@ class DomainsAndSubdomains(object):
             else:
                 self.write_to_file(
                     item, is_shop=False, number_of_goods=0, shop_domain='', phone=phone,
-                    main_page_phone=main_page_phone, all_pages_phone=all_pages_phone, leader_phone=leader_phone,
-                    leader_phone_from_team=leader_phone_from_team, email=email, leader_email=leader_email,
+                    main_page_phone=main_page_phone,
+                    leader_phone_without_sitemap=leader_phone_without_sitemap,
+                    all_pages_phone=all_pages_phone, leader_phone=leader_phone,
+                    leader_phone_from_team=leader_phone_from_team, email=email,
+                    leader_email_without_sitemap=leader_email_without_sitemap, leader_email=leader_email,
                     leader_email_from_team=leader_email_from_team, main_page_email=main_page_email,
                     all_pages_email=all_pages_email
                 )
@@ -554,10 +607,11 @@ class DomainsAndSubdomains(object):
                     """INSERT INTO Domains_and_subdomains (
                      DUNS, Handelsregister_Nummer, UID, Internet_Adresse, subdomains, Rechtsform, Filiale_Indikator,
                      Mitarbeiter, Mitarbeiter_Gruppe, is_shop, number_of_goods, phone, phone_main_page,
-                     phones_all_pages, leader_phone, leader_phone_from_team, email, email_main_page, emails_all_pages,
-                     leader_email, leader_email_from_team
+                     leader_phone_without_sitemap, phones_all_pages, leader_phone_sitemap, 
+                     leader_phone_from_team_sitemap, email, email_main_page, leader_email_without_sitemap,  
+                     emails_all_pages, leader_email_sitemap, leader_email_from_team_sitemap
                      )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (
+                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (  # noqa
                         item['DUNS'],
                         item['Handelsregister-Nummer'],
                         item['UID'],
@@ -578,6 +632,8 @@ class DomainsAndSubdomains(object):
                         '',
                         '',
                         '',
+                        '',
+                        '',
                         ''
                     )
                 )
@@ -587,9 +643,11 @@ class DomainsAndSubdomains(object):
         except Exception as e:
             print(f'check_domain: {e}')
             self.write_to_file(
-                item, is_shop=False, number_of_goods=0, shop_domain='', phone=phone,
-                main_page_phone=main_page_phone, all_pages_phone=all_pages_phone, leader_phone=leader_phone,
-                leader_phone_from_team=leader_phone_from_team, email=email, leader_email=leader_email,
+                item, is_shop=False, number_of_goods=0, shop_domain='', phone=phone, main_page_phone=main_page_phone,
+                leader_phone_without_sitemap=leader_phone_without_sitemap,
+                all_pages_phone=all_pages_phone, leader_phone=leader_phone,
+                leader_phone_from_team=leader_phone_from_team, email=email,
+                leader_email_without_sitemap=leader_email_without_sitemap, leader_email=leader_email,
                 leader_email_from_team=leader_email_from_team, main_page_email=main_page_email,
                 all_pages_email=all_pages_email
             )
@@ -598,10 +656,11 @@ class DomainsAndSubdomains(object):
                 """INSERT INTO Domains_and_subdomains (
                      DUNS, Handelsregister_Nummer, UID, Internet_Adresse, subdomains, Rechtsform, Filiale_Indikator,
                      Mitarbeiter, Mitarbeiter_Gruppe, is_shop, number_of_goods, phone, phone_main_page,
-                     phones_all_pages, leader_phone, leader_phone_from_team, email, email_main_page, emails_all_pages,
-                     leader_email, leader_email_from_team
+                     leader_phone_without_sitemap, phones_all_pages, leader_phone_sitemap, 
+                     leader_phone_from_team_sitemap, email, email_main_page, leader_email_without_sitemap,  
+                     emails_all_pages, leader_email_sitemap, leader_email_from_team_sitemap
                      )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (
+                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (   # noqa
                     item['DUNS'],
                     item['Handelsregister-Nummer'],
                     item['UID'],
@@ -622,6 +681,8 @@ class DomainsAndSubdomains(object):
                     '',
                     '',
                     '',
+                    '',
+                    '',
                     ''
                 )
             )
@@ -633,6 +694,8 @@ class DomainsAndSubdomains(object):
         shop = False
         main_page_phone = []
         main_page_email = []
+        phone = []
+        email = []
         try:
             shops = []
             chrome_options = webdriver.ChromeOptions()
@@ -667,36 +730,44 @@ class DomainsAndSubdomains(object):
 
             if len(shops) > 0 or domain_is_shop is True:
                 shop = True
-                if not main_page_phone or not main_page_email:
 
-                    # phone_and_email_from_contacts
-                    try:
-                        contact_links_from_main_page = self.contact(html, domain)
-                    except Exception as e:
-                        contact_links_from_main_page = ''
-                        print(f'is_shop_and_main_page (contacts error): {e}')
+                # phone_and_email_from_contacts
+                try:
+                    contact_links_from_main_page = self.contact(html, domain)
+                    print(f'contact_links_from_main_page {contact_links_from_main_page}')
+                except Exception as e:
+                    contact_links_from_main_page = ''
+                    print(f'is_shop_and_main_page (contacts error): {e}')
 
-                    if not main_page_phone and contact_links_from_main_page:
-                        for link in contact_links_from_main_page:
-                            response = requests.get(link, headers=self.headers)
-                            text = response.text
-                            main_page_phone.append(self.find_phones(text, leader=True)) # noqa
+                try:
+                    for link in contact_links_from_main_page:
+                        response = requests.get(link, headers=self.headers)
+                        text = response.text
+                        phone.append(self.find_phones(text, leader=True)) # noqa
+                except Exception as e:
+                    print(f'is_shop_and_main_page (phone error): {e}')
 
-                    if not main_page_email and contact_links_from_main_page:
-                        for link in contact_links_from_main_page:
-                            response = requests.get(link, headers=self.headers)
-                            text = response.text
-                            main_page_email.append(self.find_emails(text, leader=True))
+                try:
+                    for link in contact_links_from_main_page:
+                        response = requests.get(link, headers=self.headers)
+                        text = response.text
+                        email.append(self.find_emails(text, leader=True))
+                except Exception as e:
+                    print(f'is_shop_and_main_page (email error): {e}')
             else:
                 shop = False
-                main_page_phone = ''
-                main_page_email = ''
+                main_page_phone = []
+                main_page_email = []
+                phone = []
+                email = []
 
-            return shop, main_page_phone, main_page_email
+            phone = self.unique_phones([j for i in phone for j in i])
+            email = self.unique_emails([j for i in email for j in i])
+            return shop, main_page_phone, main_page_email, phone, email
 
         except Exception as e:
             print(f'is_shop: {e}')
-            return shop, main_page_phone, main_page_email
+            return shop, main_page_phone, main_page_email, phone, email
 
     def contact(self, text, url):
         """looking for a section with contacts on the main page"""
@@ -767,8 +838,8 @@ class DomainsAndSubdomains(object):
 
     def write_to_file(
             self, item, is_shop, number_of_goods, shop_domain,
-            phone, main_page_phone, all_pages_phone, leader_phone, leader_phone_from_team,
-            email, main_page_email, all_pages_email, leader_email, leader_email_from_team
+            phone, leader_phone_without_sitemap, main_page_phone, all_pages_phone, leader_phone, leader_phone_from_team,
+            email, leader_email_without_sitemap, main_page_email, all_pages_email, leader_email, leader_email_from_team
     ):
         """write data to file"""
         lst = list(item.values())
@@ -777,11 +848,13 @@ class DomainsAndSubdomains(object):
         lst.append(shop_domain)
         lst.append(phone)
         lst.append(main_page_phone)
+        lst.append(leader_phone_without_sitemap)
         lst.append(all_pages_phone)
         lst.append(leader_phone)
         lst.append(leader_phone_from_team)
         lst.append(email)
         lst.append(main_page_email)
+        lst.append(leader_email_without_sitemap)
         lst.append(all_pages_email)
         lst.append(leader_email)
         lst.append(leader_email_from_team)
@@ -792,77 +865,118 @@ class DomainsAndSubdomains(object):
             writer.writerows([lst])
 
     @staticmethod
-    def phone(leader_phone, leader_phone_from_team, all_pages_phone, main_page_phone):
+    def phone(leader_phone_without_sitemap, leader_phone, leader_phone_from_team, all_pages_phone, main_page_phone):
         """choose only one phone"""
         phone = ''
+        if not leader_phone_without_sitemap:
+            leader_phone_without_sitemap = ''
+        else:
+            try:
+                leader_phone_without_sitemap = leader_phone_without_sitemap[0]
+                phone = leader_phone_without_sitemap
+            except Exception as e: # noqa
+                print(f'phone: phone error: {e}')
 
         if not leader_phone:
             leader_phone = ''
         else:
-            leader_phone = leader_phone[0]
-            phone = leader_phone
+            try:
+                leader_phone = leader_phone[0]
+                if not leader_phone_without_sitemap:
+                    phone = leader_phone
+            except Exception as e: # noqa
+                print(f'phone: leader_phone error: {e}')
 
         if not leader_phone_from_team:
             leader_phone_from_team = ''
         else:
-            leader_phone_from_team = leader_phone_from_team[0]
-            if not leader_phone:
-                phone = leader_phone_from_team
+            try:
+                leader_phone_from_team = leader_phone_from_team[0]
+                if not leader_phone_without_sitemap and not leader_phone:
+                    phone = leader_phone_from_team
+            except Exception as e: # noqa
+                print(f'phone: leader_phone_from_team error: {e}')
 
         if not all_pages_phone:
             all_pages_phone = ''
         else:
-            all_pages_phone = all_pages_phone[0]
-            if not leader_phone and not leader_phone_from_team:
-                phone = all_pages_phone
+            try:
+                all_pages_phone = all_pages_phone[0]
+                if not leader_phone_without_sitemap and not leader_phone and not leader_phone_from_team:
+                    phone = all_pages_phone
+            except Exception as e: # noqa
+                print(f'phone: all_pages_phone error: {e}')
 
         if not main_page_phone:
             main_page_phone = ''
         else:
-            # main_page_phone = main_page_phone[0]
-            # if not leader_phone and not leader_phone_from_team and not all_pages_phone:
-            #     phone = main_page_phone
-            new_list = [e for e in main_page_phone if e]
-            main_page_phone = new_list[0] if type(new_list[0]) is not list else new_list[0][0]
-            if not leader_phone and not leader_phone_from_team and not all_pages_phone:
-                phone = main_page_phone
+            try:
+                new_list = [e for e in main_page_phone if e]
+                main_page_phone = new_list[0] if type(new_list[0]) is not list else new_list[0][0]
+                if not leader_phone_without_sitemap and not leader_phone and not leader_phone_from_team and not all_pages_phone:   # noqa
+                    phone = main_page_phone
+            except Exception as e: # noqa
+                print(f'phone: main_page_phone error: {e}')
 
-        return phone, leader_phone, leader_phone_from_team, main_page_phone, all_pages_phone
+        return phone, leader_phone_without_sitemap, leader_phone, leader_phone_from_team, main_page_phone,\
+            all_pages_phone
 
     @staticmethod
-    def email(leader_email, leader_email_from_team, all_pages_email, main_page_email):
+    def email(leader_email_without_sitemap, leader_email, leader_email_from_team, all_pages_email, main_page_email):
         """choose only one email"""
         email = ''
+        if not leader_email_without_sitemap:
+            leader_email_without_sitemap = ''
+        else:
+            try:
+                leader_email_without_sitemap = leader_email_without_sitemap[0]
+                email = leader_email_without_sitemap
+            except Exception as e: # noqa
+                print(f'email: email error: {e}')
 
         if not leader_email:
             leader_email = ''
         else:
-            leader_email = leader_email[0]
-            email = leader_email
+            try:
+                leader_email = leader_email[0]
+                if not leader_email_without_sitemap:
+                    email = leader_email
+            except Exception as e: # noqa
+                print(f'email: leader_email error: {e}')
 
         if not leader_email_from_team:
             leader_email_from_team = ''
         else:
-            leader_email_from_team = leader_email_from_team[0]
-            if not leader_email:
-                email = leader_email_from_team
+            try:
+                leader_email_from_team = leader_email_from_team[0]
+                if not leader_email_without_sitemap and not leader_email:
+                    email = leader_email_from_team
+            except Exception as e: # noqa
+                print(f'email: leader_email_from_team error: {e}')
 
         if not all_pages_email:
             all_pages_email = ''
         else:
-            all_pages_email = all_pages_email[0]
-            if not leader_email and not leader_email_from_team:
-                email = all_pages_email
+            try:
+                all_pages_email = all_pages_email[0]
+                if not leader_email_without_sitemap and not leader_email and not leader_email_from_team:
+                    email = all_pages_email
+            except Exception as e: # noqa
+                print(f'email: all_pages_email error: {e}')
 
         if not main_page_email:
             main_page_email = ''
         else:
-            new_list = [e for e in main_page_email if e]
-            main_page_email = new_list[0] if type(new_list[0]) is not list else new_list[0][0]
-            if not leader_email and not leader_email_from_team and not all_pages_email:
-                email = main_page_email
+            try:
+                new_list = [e for e in main_page_email if e]
+                main_page_email = new_list[0] if type(new_list[0]) is not list else new_list[0][0]
+                if not leader_email_without_sitemap and not leader_email and not leader_email_from_team and not all_pages_email:   # noqa
+                    email = main_page_email
+            except Exception as e: # noqa
+                print(f'email: all_pages_email error: {e}')
 
-        return email, leader_email, leader_email_from_team, main_page_email, all_pages_email
+        return email, leader_email_without_sitemap, leader_email, leader_email_from_team, main_page_email,\
+            all_pages_email
 
     @staticmethod
     def check_email_valid(email):
@@ -888,10 +1002,10 @@ if __name__ == '__main__':
     # select mode
     # mode = sys.argv[2]
     # specify timeout
-    # timeout = sys.argv[3]
+    # timeout = int(sys.argv[3])
 
     file = 'Batch-Company-Adresses_test.xlsx'
-    mode = '3'
+    mode = '1'
     timeout = 300
 
     # create object

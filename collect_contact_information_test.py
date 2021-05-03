@@ -1,14 +1,15 @@
 import csv
 import os
 import re
-import sys
 import time
 from concurrent.futures import TimeoutError
 
+import pandas as pd
 import phonenumbers
 import requests
 from bs4 import BeautifulSoup
 from names_dataset import NameDataset
+from pebble import ProcessPool
 from pyisemail import is_email
 from selenium import webdriver
 from usp.tree import sitemap_tree_for_homepage
@@ -628,11 +629,26 @@ def task_done(future):  # noqa
 
 
 if __name__ == '__main__':
-    # get one website
-    site_url = sys.argv[1]
-    mode = int(sys.argv[2])
 
-    # run one site
-    obj = LeadGeneration(site_url, mode)
-    print(f'url_started: {site_url}')
-    obj.start()
+    # # get one website
+    # site_url = sys.argv[1]
+    # mode = int(sys.argv[2])
+    #
+    # # run one site
+    # obj = LeadGeneration(site_url, mode)
+    # print(f'url_started: {site_url}')
+    # obj.start()
+
+    # get websites from file
+    urls = list()
+    df = pd.read_excel('Batch-Company-Adresses_test.xlsx', engine='openpyxl')
+    domains = df.to_dict(orient='record')
+    for domain in domains:
+        if type(domain['Internet-Adresse']) is not float:
+            urls.append(domain['Internet-Adresse'])
+
+    # multi-threaded with timeout
+    with ProcessPool(max_workers=4, max_tasks=8) as pool:
+        for u in urls:
+            future = pool.schedule(get_class, args=[u], timeout=600)
+            future.add_done_callback(task_done)

@@ -40,14 +40,16 @@ class DB(object):
                      number_of_goods integer,
                      phone TEXT,
                      phone_main_page TEXT,
+                     leader_phone_without_sitemap TEXT,
                      phones_all_pages TEXT,
-                     leader_phone TEXT,
-                     leader_phone_from_team TEXT,
+                     leader_phone_sitemap TEXT,
+                     leader_phone_from_team_sitemap TEXT,
                      email TEXT,
                      email_main_page TEXT,
+                     leader_email_without_sitemap TEXT,
                      emails_all_pages TEXT,
-                     leader_email TEXT,
-                     leader_email_from_team TEXT
+                     leader_email_sitemap TEXT,
+                     leader_email_from_team_sitemap TEXT
                      );''')
 
         self.connection.commit()

@@ -28,6 +28,7 @@ lxml==4.6.3
 MarkupSafe==1.1.1
 murmurhash==1.0.5
 nameparser==1.0.6
+names-dataset==2.0.1
 nltk==3.6.2
 numpy==1.20.1
 openpyxl==3.0.7
