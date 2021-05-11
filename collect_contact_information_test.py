@@ -9,11 +9,14 @@ import phonenumbers
 import requests
 from bs4 import BeautifulSoup
 from names_dataset import NameDataset
+from ordered_set import OrderedSet
 from pebble import ProcessPool
 from pyisemail import is_email
 from selenium import webdriver
 from usp.tree import sitemap_tree_for_homepage
 from usp.web_client.requests_client import RequestsWebClient
+
+from utils import check_email_accessible
 
 dataset = NameDataset()
 
@@ -29,12 +32,13 @@ class _RequestsWebClient(RequestsWebClient):
 class LeadGeneration(object):
 
     words_for_company_leader = [
-        'leader', 'head', 'chief', 'Leiter', 'Chef', 'Geschäftsführer', 'Geschäftsleitung', 'führer', 'Director'
+        'leader', 'head', 'chief', 'Leiter', 'Chef', 'Geschäftsführer', 'Geschäftsleitung', 'Gruppenleitung',
+        'führer', 'Director', 'CEO', 'COO'
     ]
 
     words_for_company_team = [
-        'team', 'staff', 'personnel', 'mitarbeiter', 'Ueber_uns', 'ber uns', 'about us', 'about_us', 'kontakt',
-        'contact', 'contatti', 'firma'
+        'team', 'staff', 'personnel', 'mitarbeiter', 'Ueber_uns', 'ber uns', 'ber_uns', 'ueber-uns', 'about us',
+        'about_us', 'kontakt', 'contact', 'contatti', 'firma', 'corporate', 'company', 'impressum', 'agentur', 'buero'
     ]
 
     def __init__(self, website: str, all_pages: int = 0) -> None:
@@ -88,14 +92,31 @@ class LeadGeneration(object):
                 if contacts_htmls:
                     for html in contacts_htmls:
 
-                        phones, phone_text = self.find_phones(html, leader=True)  # list of lists
+                        phones, phone_text = self.find_phones(html, leader=True)
                         phone_leader.append(phones)
                         text_from_phone.append(phone_text)
 
-                        emails, email_text = self.find_emails(html, leader=True)  # list of lists
+                        # if we didn’t find the phone number on the main page:
+                        if not main_page_phone:
+                            phone_m, _ = self.find_phones(html)
+                            for phone in phone_m:
+                                main_page_phone.append(phone)
+
+                        emails, email_text = self.find_emails(html, leader=True)
                         email_leader.append(emails)
                         text_from_email.append(email_text)
 
+                        # if we didn’t find the email number on the main page:
+                        if not main_page_email:
+                            email_m, _ = self.find_emails(html)
+                            for email in email_m:
+                                main_page_email.append(email)
+
+                    # get unique main page phones and emails
+                    main_page_phone = self.unique_phones(main_page_phone)
+                    main_page_email = self.unique(main_page_email)
+
+                    # unpacking phones and get unique
                     text_from_phone = [j for i in text_from_phone for j in i]
                     text_from_phone = self.unique([i for i in text_from_phone if i])
                     phone_leader = self.unique_phones([j for i in phone_leader for j in i])
@@ -106,6 +127,7 @@ class LeadGeneration(object):
                     except IndexError:
                         pass
 
+                    # unpacking emails and get unique
                     text_from_email = [j for i in text_from_email for j in i]
                     text_from_email = self.unique([i for i in text_from_email if i])
                     email_leader = self.unique([j for i in email_leader for j in i])
@@ -144,13 +166,32 @@ class LeadGeneration(object):
                 print(f'sitemap_tree: {e}')
 
             try:
-                # name_leader = self.unique(text_sitemap_leader_phone_from_team +
-                # text_sitemap_leader_email_from_team + text_from_phone + text_from_email)  # noqa
-
                 name_leader = text_from_phone if text_from_phone else text_from_email
-
             except Exception as e:
                 print(f'name_leader: {e}')
+
+            try:
+                if not email_leader and name_leader:
+                    if len(name_leader[0].split(sep=' ')) == 2:
+                        email_leader = self.gen_email(name_leader, self.website)
+            except IndexError:
+                pass
+
+            try:
+                if not phone_leader:
+                    phone_leader = sitemap_leader_phone if sitemap_leader_phone else sitemap_leader_phone_from_team if sitemap_leader_phone_from_team else '' # noqa
+                    if phone_leader:
+                        phone_leader = phone_leader[0]
+            except Exception as e:
+                print(f'phone_leader_main: {e}')
+
+            try:
+                if not email_leader:
+                    email_leader = sitemap_leader_email if sitemap_leader_email else sitemap_leader_email_from_team if sitemap_leader_email_from_team else '' # noqa
+                    if email_leader:
+                        email_leader = email_leader[0]
+            except Exception as e:
+                print(f'email_leader_main: {e}')
 
             self.write_to_file(
                 website=self.website,
@@ -191,6 +232,47 @@ class LeadGeneration(object):
                 text_sitemap_leader_email_from_team=text_sitemap_leader_email_from_team,
                 all_pages_leader_email=all_pages_leader_email,
             )
+
+    @staticmethod
+    def gen_email(leader_name, homepage):
+        """the method generates emails from the name of the head of the company and checks their availability"""
+
+        to_return = list()
+        result = list()
+
+        try:
+            homepage = homepage.split('www.')[1]
+            firstname, lastname = leader_name[0].split(sep=' ')
+
+            temp = "{}.{}@{}".format(firstname, lastname, homepage)
+            to_return.append(temp)
+            temp = "{}.{}@{}".format(lastname, firstname, homepage)
+            to_return.append(temp)
+            temp = "{}@{}".format(lastname, homepage)
+            to_return.append(temp)
+            temp = "{}@{}".format(firstname, homepage)
+            to_return.append(temp)
+            temp = "{}.{}@{}".format(firstname[0], lastname[0], homepage)
+            to_return.append(temp)
+            temp = "{}.{}@{}".format(firstname[0], lastname, homepage)
+            to_return.append(temp)
+            temp = "{}.{}@{}".format(lastname[0], firstname, homepage)
+            to_return.append(temp)
+            temp = "{}.{}@{}".format(firstname, lastname[0], homepage)
+            to_return.append(temp)
+            temp = "{}.{}@{}".format(lastname, firstname[0], homepage)
+            to_return.append(temp)
+
+            for email in to_return:
+                r = check_email_accessible(email)
+                if r is True:
+                    result.append(email)
+            if len(result) > 1:
+                result = result[0]
+        except Exception as e:
+            print(f'gen_email: {e}')
+
+        return result
 
     @staticmethod
     def get_html_with_selenium(url: str) -> str:
@@ -381,8 +463,9 @@ class LeadGeneration(object):
                 i_list = []
                 r = re.sub(r"([A-Z])", r" \1", i).split()
                 r = self.unique(r)
+                r = [res.replace(',', '').replace('.', '').replace(' ', '') for res in r if res[0].isupper()] # noqa
                 for word in r:
-                    if word[0].isupper() is True and (dataset.search_first_name(word) > 5.0 or dataset.search_last_name(word) > 5.0):   # noqa
+                    if word[0].isupper() is True and (dataset.search_first_name(word) > 5.0 or dataset.search_last_name(word) > 5.0) and len(i_list) < 2: # noqa
                         i_list.append(word)
                 result = ' '.join(i_list)
                 if result:
@@ -405,7 +488,7 @@ class LeadGeneration(object):
     @staticmethod
     def unique(lst: list) -> list:
         """remove duplicate"""
-        set_lst = list(set(lst))
+        set_lst = list(OrderedSet(lst))
         return set_lst
 
     def get_or_create_results_file(self):
@@ -509,13 +592,19 @@ class LeadGeneration(object):
         try:
             html = requests.get(url, headers=self.headers).text
             soup = BeautifulSoup(html, 'lxml')
-            phone = soup.find(text=re.compile(word)).parent.parent
+            phone = soup.find(text=re.compile(word)).parent  # TODO
             for match in phonenumbers.PhoneNumberMatcher(str(phone), "CH"):
-                result = str(match).split(sep=') ')[1]
-                if result is not None and str(result).strip() != '410':
+                result = str(match).split(sep=') ', maxsplit=1)[1]
+                if result:
                     phone_list.append(result)
+            if not phone_list:
+                for match in phonenumbers.PhoneNumberMatcher(
+                        str(soup.find(text=re.compile(word)).parent.parent), "CH"):  # noqa
+                    result = str(match).split(sep=') ', maxsplit=1)[1]
+                    if result:
+                        phone_list.append(result)
             return phone_list
-        except Exception as e: # noqa
+        except Exception as e:  # noqa
             return phone_list
 
     def find_email_by_keyword(self, url: str, word: str) -> list:
@@ -524,7 +613,7 @@ class LeadGeneration(object):
         try:
             html = requests.get(url, headers=self.headers).text
             soup = BeautifulSoup(html, 'lxml')
-            tag = soup.find(text=re.compile(word)).parent.parent
+            tag = soup.find(text=re.compile(word)).parent
             email = tag.find(text=re.compile(r'[\w\.-]+@[\w\.-]+(\.[\w]+)+'))  # noqa
             if email is not None:
                 email = email.strip()
@@ -535,6 +624,18 @@ class LeadGeneration(object):
                     result = [word for word in result if '@' in word]
                     if self.check_email_valid(result[0]) is True:
                         email_list.append(result[0])
+            if not email_list:
+                tag = soup.find(text=re.compile(word)).parent.parent
+                email = tag.find(text=re.compile(r'[\w\.-]+@[\w\.-]+(\.[\w]+)+'))  # noqa
+                if email is not None:
+                    email = email.strip()
+                    if self.check_email_valid(email) is True:
+                        email_list.append(email)
+                    else:
+                        result = email.split(sep=' ')
+                        result = [word for word in result if '@' in word]
+                        if self.check_email_valid(result[0]) is True:
+                            email_list.append(result[0])
             return email_list
         except Exception as e: # noqa
             return email_list
@@ -630,25 +731,27 @@ def task_done(future):  # noqa
 
 if __name__ == '__main__':
 
-    # # get one website
+    # get one website
     # site_url = sys.argv[1]
+    site_url = 'http://www.compag.ch'
     # mode = int(sys.argv[2])
+    mode = 0
+
+    # run one site
+    obj = LeadGeneration(site_url, mode)
+    print(f'url_started: {site_url}')
+    obj.start()
+
+    # # get websites from file
+    # urls = list()
+    # df = pd.read_excel('Batch-Company-Adresses_test.xlsx', engine='openpyxl')
+    # domains = df.to_dict(orient='record')
+    # for domain in domains:
+    #     if type(domain['Internet-Adresse']) is not float:
+    #         urls.append(domain['Internet-Adresse'])
     #
-    # # run one site
-    # obj = LeadGeneration(site_url, mode)
-    # print(f'url_started: {site_url}')
-    # obj.start()
-
-    # get websites from file
-    urls = list()
-    df = pd.read_excel('Batch-Company-Adresses_test.xlsx', engine='openpyxl')
-    domains = df.to_dict(orient='record')
-    for domain in domains:
-        if type(domain['Internet-Adresse']) is not float:
-            urls.append(domain['Internet-Adresse'])
-
-    # multi-threaded with timeout
-    with ProcessPool(max_workers=4, max_tasks=8) as pool:
-        for u in urls:
-            future = pool.schedule(get_class, args=[u], timeout=600)
-            future.add_done_callback(task_done)
+    # # multi-threaded with timeout
+    # with ProcessPool(max_workers=3, max_tasks=6) as pool:
+    #     for u in urls:
+    #         future = pool.schedule(get_class, args=[u], timeout=600)
+    #         future.add_done_callback(task_done)

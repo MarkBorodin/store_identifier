@@ -7,6 +7,7 @@ import pandas as pd
 import psycopg2
 import requests
 from bs4 import BeautifulSoup
+from ordered_set import OrderedSet
 from pebble import ProcessPool
 from selenium import webdriver
 from url_normalize import url_normalize
@@ -30,12 +31,13 @@ class DomainsAndSubdomains(object):
     ]
 
     words_for_company_leader = [
-        'leader', 'head', 'chief', 'Leiter', 'Chef', 'Geschäftsführer', 'Geschäftsleitung', 'führer', 'Director'
+        'leader', 'head', 'chief', 'Leiter', 'Chef', 'Geschäftsführer', 'Geschäftsleitung', 'Gruppenleitung',
+        'führer', 'Director', 'CEO', 'COO'
     ]
 
     words_for_company_team = [
-        'team', 'staff', 'personnel', 'mitarbeiter', 'Ueber_uns', 'ber uns', 'ber_uns', 'about us', 'about_us',
-        'kontakt', 'contact', 'contatti', 'firma'
+        'team', 'staff', 'personnel', 'mitarbeiter', 'Ueber_uns', 'ber uns', 'ber_uns', 'ueber-uns', 'about us',
+        'about_us', 'kontakt', 'contact', 'contatti', 'firma', 'corporate', 'company', 'impressum', 'agentur', 'buero'
     ]
 
     def __init__(self, file, mode='1', timeout=3600): # noqa
@@ -137,7 +139,7 @@ class DomainsAndSubdomains(object):
         try:
             html = requests.get(url, headers=self.headers).text
             soup = BeautifulSoup(html, 'lxml')
-            tag = soup.find(text=re.compile(word)).parent.parent  # TODO
+            tag = soup.find(text=re.compile(word)).parent # TODO
             email = tag.find(text=re.compile(r'[\w\.-]+@[\w\.-]+(\.[\w]+)+'))  # noqa
             if email is not None:
                 email = email.strip()
@@ -148,6 +150,18 @@ class DomainsAndSubdomains(object):
                     result = [word for word in result if '@' in word]
                     if self.check_email_valid(result[0]) is True:
                         email_list.append(result[0])
+            if not email_list:
+                tag = soup.find(text=re.compile(word)).parent.parent
+                email = tag.find(text=re.compile(r'[\w\.-]+@[\w\.-]+(\.[\w]+)+'))  # noqa
+                if email is not None:
+                    email = email.strip()
+                    if self.check_email_valid(email) is True:
+                        email_list.append(email)
+                    else:
+                        result = email.split(sep=' ')
+                        result = [word for word in result if '@' in word]
+                        if self.check_email_valid(result[0]) is True:
+                            email_list.append(result[0])
             return email_list
         except Exception as e: # noqa
             print(f'find_email_by_keyword: {e}')
@@ -833,7 +847,7 @@ class DomainsAndSubdomains(object):
     @staticmethod
     def unique_emails(lst):
         """remove duplicate emails"""
-        set_lst = list(set(lst))
+        set_lst = list(OrderedSet(lst))
         return set_lst
 
     def write_to_file(
