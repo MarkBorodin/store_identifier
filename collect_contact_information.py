@@ -223,7 +223,6 @@ class LeadGeneration(object):
                                 if (firstname in mail or secondname in mail) and ('info' not in mail and 'office' not in mail): # noqa
                                     email_leader.append(mail)
                                     temp_emails.remove(mail)
-                                    print(f'find! {mail}')
                 email_leader = self.unique(email_leader)
             except Exception as e:
                 print(f'find_name_by_email_main: {e}')
