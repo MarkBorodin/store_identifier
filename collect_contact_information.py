@@ -120,7 +120,7 @@ class LeadGeneration(object):
                         for email in email_m:
                             temp_emails.append(email)
 
-                    # get unique ll phones and emails from contact pages
+                    # get unique all phones and emails from contact pages
                     temp_phones = self.unique_phones(temp_phones)
                     # if not main_page_phone and temp_phones:
                     #     main_page_phone = temp_phones
@@ -348,18 +348,21 @@ class LeadGeneration(object):
                             response = requests.get(self.website + '/' + link, headers=self.headers)
                             if response.status_code == 200:
                                 html_list.append(response.text)
+                                continue
                         except:  # noqa
                             pass
                         try:
                             response = requests.get(self.website + link, headers=self.headers)
                             if response.status_code == 200:
                                 html_list.append(response.text)
+                                continue
                         except:  # noqa
                             pass
                         try:
                             response = requests.get(link, headers=self.headers)
                             if response.status_code == 200:
                                 html_list.append(response.text)
+                                continue
                         except:  # noqa
                             pass
         except Exception as e: # noqa
@@ -457,53 +460,74 @@ class LeadGeneration(object):
                                 if name:
                                     names.append(name)
                                     temp_contact['name'] = name
+
                                 else:
                                     text_from_phone = str(soup.find(text=re.compile(word)).parent.parent.text).strip().replace('\n', ' ')  # noqa TODO
                                     name = self.get_names([text_from_phone])
                                     if name:
                                         names.append(name)
                                         temp_contact['name'] = name
-                                    else:
-                                        text_from_phone = str(soup.find(text=re.compile(word)).parent.parent.parent.text).strip().replace('\n', ' ')  # noqa TODO
-                                        name = self.get_names([text_from_phone])
-                                        if name:
-                                            names.append(name)
-                                            temp_contact['name'] = name
-                                        else:
-                                            text_from_phone = str(soup.find(text=re.compile(word)).parent.parent.parent.parent.text).strip().replace('\n', ' ')  # noqa TODO
-                                            name = self.get_names([text_from_phone])
-                                            if name:
-                                                names.append(name)
-                                                temp_contact['name'] = name
+
+                                    # else:
+                                    #     text_from_phone = str(soup.find(text=re.compile(word)).parent.parent.parent.text).strip().replace('\n', ' ')  # noqa TODO
+                                    #     name = self.get_names([text_from_phone])
+                                    #     if name:
+                                    #         names.append(name)
+                                    #         temp_contact['name'] = name
+
+                                        # else:
+                                        #     text_from_phone = str(soup.find(text=re.compile(word)).parent.parent.parent.parent.text).strip().replace('\n', ' ')  # noqa TODO
+                                        #     name = self.get_names([text_from_phone])
+                                        #     if name:
+                                        #         names.append(name)
+                                        #         temp_contact['name'] = name
                             except Exception: # noqa
                                 pass
 
                             # get phone
                             try:
-                                for match in phonenumbers.PhoneNumberMatcher(str(soup.find(text=re.compile(word)).parent), "CH"):  # noqa TODO
-                                    result = str(match).split(sep=') ', maxsplit=1)[1]
-                                    if result:
-                                        phones.append(result)
-                                        temp_contact['phone'] = result
-                                    else:
-                                        for match in phonenumbers.PhoneNumberMatcher(str(soup.find(text=re.compile(word)).parent.parent), "CH"):  # noqa
+                                result = ''
+                                try:
+                                    res = phonenumbers.PhoneNumberMatcher(str(soup.find(text=re.compile(word)).parent), "CH")  # noqa TODO
+                                    for match in res:  # noqa TODO
+                                        result = str(match).split(sep=') ', maxsplit=1)[1]
+                                        if result:
+                                            phones.append(result)
+                                except Exception:  # noqa
+                                    pass
+
+                                if not result:
+                                    try:
+                                        res = phonenumbers.PhoneNumberMatcher(str(soup.find(text=re.compile(word)).parent.parent), "CH")  # noqa TODO
+                                        for match in res:  # noqa TODO
                                             result = str(match).split(sep=') ', maxsplit=1)[1]
                                             if result:
                                                 phones.append(result)
-                                                temp_contact['phone'] = result
-                                            else:
-                                                for match in phonenumbers.PhoneNumberMatcher(str(soup.find(text=re.compile(word)).parent.parent.parent), "CH"):  # noqa
-                                                    result = str(match).split(sep=') ', maxsplit=1)[1]
-                                                    if result:
-                                                        phones.append(result)
-                                                        temp_contact['phone'] = result
-                                                    else:
-                                                        for match in phonenumbers.PhoneNumberMatcher(str(soup.find(text=re.compile(word)).parent.parent.parent.parent), "CH"):  # noqa
-                                                            result = str(match).split(sep=') ', maxsplit=1)[1]
-                                                            if result:
-                                                                phones.append(result)
-                                                                temp_contact['phone'] = result
-                            except Exception: # noqa
+                                    except Exception:  # noqa
+                                        pass
+
+                                # if not result:
+                                #     try:
+                                #         res = phonenumbers.PhoneNumberMatcher(str(soup.find(text=re.compile(word)).parent.parent.parent), "CH")  # noqa TODO
+                                #         for match in res:  # noqa TODO
+                                #             result = str(match).split(sep=') ', maxsplit=1)[1]
+                                #             if result:
+                                #                 phones.append(result)
+                                #     except Exception:  # noqa
+                                #         pass
+
+                                # if not result:
+                                #     try:
+                                #         res = phonenumbers.PhoneNumberMatcher(str(soup.find(
+                                #             text=re.compile(word)).parent.parent.parent.parent),
+                                #                                               "CH")  # noqa TODO
+                                #         for match in res:  # noqa TODO
+                                #             result = str(match).split(sep=') ', maxsplit=1)[1]
+                                #             if result:
+                                #                 phones.append(result)
+                                #     except Exception:  # noqa
+                                #         pass
+                            except Exception as e:  # noqa
                                 pass
 
                             # get email
@@ -518,6 +542,11 @@ class LeadGeneration(object):
                                     email = tag.find(text=re.compile(r'[\w\.-]+\[ät\][\w\.-]+(\.[\w]+)+'))  # noqa
                                 if not email:
                                     email = tag.find(text=re.compile(r'[\w\.-]+\(ät\)[\w\.-]+(\.[\w]+)+'))  # noqa
+                                if not email:
+                                    email = tag.find('a')
+                                    if email:
+                                        email = email.get('href') if 'mailto:' in email.get('href') else ''
+                                        email = email.replace('mailto:', '')
                                 if email is not None:
                                     email = email.strip()
                                     if self.check_email_valid(email) is True or '(at)' in email or '[at]' in email or '[ät]' in email or '(ät)' in email: # noqa
@@ -529,6 +558,7 @@ class LeadGeneration(object):
                                         if self.check_email_valid(email_temp[0]) is True or '(at)' in email_temp[0] or '[at]' in email_temp[0] or '[ät]' in email_temp[0] or '(ät)' in email_temp[0]: # noqa:
                                             emails.append(email_temp[0])
                                             temp_contact['email'] = email_temp[0]
+
                                 if not email:
                                     tag = soup.find(text=re.compile(word)).parent.parent  # TODO
                                     email = tag.find(text=re.compile(r'[\w\.-]+@[\w\.-]+(\.[\w]+)+'))  # noqa
@@ -540,6 +570,11 @@ class LeadGeneration(object):
                                         email = tag.find(text=re.compile(r'[\w\.-]+\[ät\][\w\.-]+(\.[\w]+)+'))  # noqa
                                     if not email:
                                         email = tag.find(text=re.compile(r'[\w\.-]+\(ät\)[\w\.-]+(\.[\w]+)+'))  # noqa
+                                    if not email:
+                                        email = tag.find('a')
+                                        if email:
+                                            email = email.get('href') if 'mailto:' in email.get('href') else ''
+                                            email = email.replace('mailto:', '')
                                     if email is not None:
                                         email = email.strip()
                                         if self.check_email_valid(email) is True or '(at)' in email or '[at]' in email or '[ät]' in email or '(ät)' in email: # noqa
@@ -551,50 +586,57 @@ class LeadGeneration(object):
                                             if self.check_email_valid(email_temp[0]) is True or '(at)' in email_temp[0] or '[at]' in email_temp[0] or '[ät]' in email_temp[0] or '(ät)' in email_temp[0]: # noqa:
                                                 emails.append(email_temp[0])
                                                 temp_contact['email'] = email_temp[0]
-                                if not email:
-                                    tag = soup.find(text=re.compile(word)).parent.parent.parent  # TODO
-                                    email = tag.find(text=re.compile(r'[\w\.-]+@[\w\.-]+(\.[\w]+)+'))  # noqa
-                                    if not email:
-                                        email = tag.find(text=re.compile(r'[\w\.-]+\(at\)[\w\.-]+(\.[\w]+)+'))  # noqa
-                                    if not email:
-                                        email = tag.find(text=re.compile(r'[\w\.-]+\[at\][\w\.-]+(\.[\w]+)+'))  # noqa
-                                    if not email:
-                                        email = tag.find(text=re.compile(r'[\w\.-]+\[ät\][\w\.-]+(\.[\w]+)+'))  # noqa
-                                    if not email:
-                                        email = tag.find(text=re.compile(r'[\w\.-]+\(ät\)[\w\.-]+(\.[\w]+)+'))  # noqa
-                                    if email is not None:
-                                        email = email.strip()
-                                        if self.check_email_valid(email) is True or '(at)' in email or '[at]' in email or '[ät]' in email or '(ät)' in email: # noqa
-                                            emails.append(email)
-                                            temp_contact['email'] = email
-                                        else:
-                                            email_temp = email.split(sep=' ')
-                                            email_temp = [word for word in email_temp if '@' in word or '(at)' in word or '[at]' in word or '[ät]' in word or '(ät)' in word] # noqa
-                                            if self.check_email_valid(email_temp[0]) is True or '(at)' in email_temp[0] or '[at]' in email_temp[0] or '[ät]' in email_temp[0] or '(ät)' in email_temp[0]: # noqa:
-                                                emails.append(email_temp[0])
-                                                temp_contact['email'] = email_temp[0]
-                                if not email:
-                                    tag = soup.find(text=re.compile(word)).parent.parent.parent.parent  # TODO
-                                    email = tag.find(text=re.compile(r'[\w\.-]+@[\w\.-]+(\.[\w]+)+'))  # noqa
-                                    if not email:
-                                        email = tag.find(text=re.compile(r'[\w\.-]+\(at\)[\w\.-]+(\.[\w]+)+'))  # noqa
-                                    if not email:
-                                        email = tag.find(text=re.compile(r'[\w\.-]+\[at\][\w\.-]+(\.[\w]+)+'))  # noqa
-                                    if not email:
-                                        email = tag.find(text=re.compile(r'[\w\.-]+\[ät\][\w\.-]+(\.[\w]+)+'))  # noqa
-                                    if not email:
-                                        email = tag.find(text=re.compile(r'[\w\.-]+\(ät\)[\w\.-]+(\.[\w]+)+'))  # noqa
-                                    if email is not None:
-                                        email = email.strip()
-                                        if self.check_email_valid(email) is True or '(at)' in email or '[at]' in email or '[ät]' in email or '(ät)' in email: # noqa
-                                            emails.append(email)
-                                            temp_contact['email'] = email
-                                        else:
-                                            email_temp = email.split(sep=' ')
-                                            email_temp = [word for word in email_temp if '@' in word or '(at)' in word or '[at]' in word or '[ät]' in word or '(ät)' in word] # noqa
-                                            if self.check_email_valid(email_temp[0]) is True or '(at)' in email_temp[0] or '[at]' in email_temp[0] or '[ät]' in email_temp[0] or '(ät)' in email_temp[0]: # noqa:
-                                                emails.append(email_temp[0])
-                                                temp_contact['email'] = email_temp[0]
+
+                                # if not email:
+                                #     tag = soup.find(text=re.compile(word)).parent.parent.parent  # TODO
+                                #     email = tag.find(text=re.compile(r'[\w\.-]+@[\w\.-]+(\.[\w]+)+'))  # noqa
+                                #     if not email:
+                                #         email = tag.find(text=re.compile(r'[\w\.-]+\(at\)[\w\.-]+(\.[\w]+)+'))  # noqa
+                                #     if not email:
+                                #         email = tag.find(text=re.compile(r'[\w\.-]+\[at\][\w\.-]+(\.[\w]+)+'))  # noqa
+                                #     if not email:
+                                #         email = tag.find(text=re.compile(r'[\w\.-]+\[ät\][\w\.-]+(\.[\w]+)+'))  # noqa
+                                #     if not email:
+                                #         email = tag.find(text=re.compile(r'[\w\.-]+\(ät\)[\w\.-]+(\.[\w]+)+'))  # noqa
+                                #     if not email:
+                                #         email = tag.find('a')
+                                #         if email:
+                                #             email = email.get('href') if 'mailto:' in email.get('href') else ''
+                                #             email = email.replace('mailto:', '')
+                                #     if email is not None:
+                                #         email = email.strip()
+                                #         if self.check_email_valid(email) is True or '(at)' in email or '[at]' in email or '[ät]' in email or '(ät)' in email: # noqa
+                                #             emails.append(email)
+                                #             temp_contact['email'] = email
+                                #         else:
+                                #             email_temp = email.split(sep=' ')
+                                #             email_temp = [word for word in email_temp if '@' in word or '(at)' in word or '[at]' in word or '[ät]' in word or '(ät)' in word] # noqa
+                                #             if self.check_email_valid(email_temp[0]) is True or '(at)' in email_temp[0] or '[at]' in email_temp[0] or '[ät]' in email_temp[0] or '(ät)' in email_temp[0]: # noqa:
+                                #                 emails.append(email_temp[0])
+                                #                 temp_contact['email'] = email_temp[0]
+
+                                # if not email:
+                                #     tag = soup.find(text=re.compile(word)).parent.parent.parent.parent  # TODO
+                                #     email = tag.find(text=re.compile(r'[\w\.-]+@[\w\.-]+(\.[\w]+)+'))  # noqa
+                                #     if not email:
+                                #         email = tag.find(text=re.compile(r'[\w\.-]+\(at\)[\w\.-]+(\.[\w]+)+'))  # noqa
+                                #     if not email:
+                                #         email = tag.find(text=re.compile(r'[\w\.-]+\[at\][\w\.-]+(\.[\w]+)+'))  # noqa
+                                #     if not email:
+                                #         email = tag.find(text=re.compile(r'[\w\.-]+\[ät\][\w\.-]+(\.[\w]+)+'))  # noqa
+                                #     if not email:
+                                #         email = tag.find(text=re.compile(r'[\w\.-]+\(ät\)[\w\.-]+(\.[\w]+)+'))  # noqa
+                                #     if email is not None:
+                                #         email = email.strip()
+                                #         if self.check_email_valid(email) is True or '(at)' in email or '[at]' in email or '[ät]' in email or '(ät)' in email: # noqa
+                                #             emails.append(email)
+                                #             temp_contact['email'] = email
+                                #         else:
+                                #             email_temp = email.split(sep=' ')
+                                #             email_temp = [word for word in email_temp if '@' in word or '(at)' in word or '[at]' in word or '[ät]' in word or '(ät)' in word] # noqa
+                                #             if self.check_email_valid(email_temp[0]) is True or '(at)' in email_temp[0] or '[at]' in email_temp[0] or '[ät]' in email_temp[0] or '(ät)' in email_temp[0]: # noqa:
+                                #                 emails.append(email_temp[0])
+                                #                 temp_contact['email'] = email_temp[0]
                             except Exception:  # noqa
                                 continue
 
